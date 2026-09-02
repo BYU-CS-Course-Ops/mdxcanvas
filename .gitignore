@@ -168,3 +168,6 @@ cython_debug/
 /.idea/
 *.iml
 .quarto/
+
+# Agent scratch space
+/.agents/scratch/
