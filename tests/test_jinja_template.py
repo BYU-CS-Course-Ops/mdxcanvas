@@ -6,7 +6,7 @@ from textwrap import dedent
 from mdxcanvas.text_processing.jinja_processing import process_jinja
 
 
-def test_split_list():
+def test_split_list(tmp_path):
     template_str = """
     {% for name in split_list(data["NAMES"]) %}{{ name }}
     {% endfor %}
@@ -23,7 +23,8 @@ def test_split_list():
             "data": {
                 "NAMES": "John;Juan;Jack"
             }
-        }
+        },
+        parent_folder=tmp_path,
     )
     assert actual_output == expected_output
 
@@ -49,6 +50,7 @@ def test_glob():
         )
         actual_output = process_jinja(
             tmppath.read_text(),
-            tmppath.parent
+            {},
+            tmppath.parent,
         )
         assert actual_output == expected_output

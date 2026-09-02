@@ -50,6 +50,22 @@ def test_get_stale_resources_filters_allowed_types_and_priority():
     ]
 
 
+def test_navigation_checksum_is_retained_even_during_full_cleanup():
+    entry = {
+        'checksum': 'navigation-checksum',
+        'canvas_info': {'id': '99'},
+    }
+    md5s = FakeMD5Sums({
+        ('navigation', 'navigation'): entry,
+    })
+
+    stale = get_stale_resources({}, md5s, allowed_types=None)
+
+    assert stale == []
+    assert md5s.get_canvas_info(('navigation', 'navigation')) == {'id': '99'}
+    assert md5s._data[('navigation', 'navigation')] == entry
+
+
 def test_deploy_to_canvas_applies_default_stale_cleanup(monkeypatch):
     recorded = {}
 

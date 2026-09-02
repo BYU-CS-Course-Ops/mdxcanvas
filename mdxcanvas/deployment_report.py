@@ -45,7 +45,7 @@ class DeploymentReport:
             print(' Deployed Content '.center(60, '-'))
             for url, resources in groups.items():
                 resources_str = ', '.join(rid for _, rid in resources)
-                print(f'{resources_str}: {url}')
+                print(f'{resources_str}: {url}' if url else resources_str)
 
         if self.report['content_to_review']:
             print(' Content to Review '.center(60, '-'))

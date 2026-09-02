@@ -22,6 +22,7 @@ For legacy repositories that need explicit resource IDs added across course file
 
 ## Course-Wide Elements
 
+- [`<navigation>`](tags/navigation_tag.md) - Authoritatively controls visible Canvas Course Navigation tabs and their order.
 - [`<syllabus>`](tags/syllabus_tag.md) - Sets the content of the course syllabus page.
 - [`<override>`](tags/override_tag.md) - Apply section-specific dates to assignments or quizzes.
 - [`<announcement>`](tags/announcement_tag.md) - Post course-wide announcements with optional scheduled publishing.

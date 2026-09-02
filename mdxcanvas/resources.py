@@ -24,6 +24,10 @@ class CourseSettingsInfo(ResourceInfo):
     id: str
 
 
+class NavigationInfo(ResourceInfo):
+    id: str
+
+
 class AssignmentInfo(ResourceInfo):
     id: str
     url: str | None
@@ -103,7 +107,7 @@ class SyllabusInfo(ResourceInfo):
 class CanvasResource(TypedDict):
     type: str
     id: str | Any
-    data: 'dict | FileData | ZipFileData | QuartoSlidesData | MermaidData | SyllabusData'
+    data: 'dict | FileData | ZipFileData | QuartoSlidesData | MermaidData | NavigationData | SyllabusData'
     content_path: str
 
 
@@ -152,6 +156,11 @@ class MermaidData(TypedDict):
     alt: NotRequired[StrLike | None]
     css_class: NotRequired[StrLike | None]
     attrs: NotRequired[dict[str, str]]
+    canvas_id: NotRequired[str | None]
+
+
+class NavigationData(TypedDict):
+    tabs: list[str]
     canvas_id: NotRequired[str | None]
 
 

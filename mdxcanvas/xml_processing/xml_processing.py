@@ -4,6 +4,7 @@ from typing import Callable
 from .announcement_tags import AnnouncementTagProcessor
 from .assignment_tags import AssignmentTagProcessor
 from .mermaid_preprocessor import make_mermaid_preprocessor
+from .navigation_tags import NavigationTagProcessor
 from .quarto_slides_preprocessor import make_quarto_slides_preprocessor
 from .syllabus_tags import SyllabusTagProcessor
 from ..resources import ResourceManager
@@ -80,6 +81,7 @@ def process_canvas_xml(resources: ResourceManager, text: str):
         'assignment': AssignmentTagProcessor(resources),
         'group': AssignmentGroupTagProcessor(resources),
         'module': ModuleTagProcessor(resources),
+        'navigation': NavigationTagProcessor(resources),
         'page': PageTagProcessor(resources),
         'quiz': QuizTagProcessor(resources),
         'syllabus': SyllabusTagProcessor(resources)

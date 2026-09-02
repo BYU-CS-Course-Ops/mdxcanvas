@@ -147,6 +147,7 @@ As an authoring rule, every MDXCanvas tag must carry an explicit, unique, stable
 The exceptions are tags for which an authored resource ID is not meaningful or supported:
 
 - `<syllabus>` has the fixed identity `syllabus`;
+- `<navigation>` has the fixed identity `navigation`;
 - `<override>` identity is derived from its parent resource and `section_id`;
 - `<course-settings>` is singleton course configuration;
 - `<file>`, `<img>`, `<zip>`, `<quarto-slides>`, and `<mermaid>` use filename-, `name`-, or content-derived asset identity in the current implementation;
@@ -412,6 +413,17 @@ Use explicit `id`, `title`, and `publish_date`. `publish_date` maps to Canvas de
 ```
 
 Use one syllabus resource per course. It has a fixed logical identity and no author-supplied attributes.
+
+### Course navigation
+
+```xml
+<navigation>
+  <tab name="Assignments"/>
+  <tab name="External Tool"/>
+</navigation>
+```
+
+Navigation is one fixed-identity, course-wide resource. Tab names must be unique exact, case-sensitive Canvas labels. Listed tabs are shown in source order immediately after Home; unlisted manageable tabs are hidden. An empty `<navigation/>` hides all manageable tabs, while omitting the block leaves navigation unmanaged. Use one block: if more than one is present, the last one takes effect. Do not list Home or Settings. The tag creates no tabs and does not override Canvas/LTI visibility policy.
 
 ## Helper tags
 
