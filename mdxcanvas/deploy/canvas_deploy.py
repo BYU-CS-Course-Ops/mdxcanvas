@@ -23,6 +23,7 @@ from .group import deploy_group
 from .mermaid import deploy_mermaid
 from .migration import migrate
 from .module import deploy_module, deploy_module_item, get_module_item
+from .navigation import deploy_navigation
 from .override import deploy_override, get_override
 from .page import deploy_page, deploy_shell_page
 from .quarto_slides import deploy_quarto_slides
@@ -37,6 +38,7 @@ from ..resources import CanvasResource, iter_keys, ResourceInfo
 logger = get_logger()
 
 DEFAULT_STALE_RESOURCE_TYPES = frozenset({'quiz_question', 'module_item'})
+ALWAYS_RETAINED_RESOURCE_TYPES = frozenset({'course_settings', 'navigation', 'quiz_question_order', 'syllabus'})
 
 SHELL_DEPLOYERS: dict[str, Callable[[Course, dict, Path], tuple[ResourceInfo, tuple[str, str] | None]]] = {
     # Current known resources that need shell deployments
@@ -63,6 +65,7 @@ DEPLOYERS: dict[str, Callable[[Course, Any, Path], tuple[ResourceInfo, tuple[str
     'mermaid': deploy_mermaid,
     'module': deploy_module,
     'module_item': deploy_module_item,
+    'navigation': deploy_navigation,
     'override': deploy_override,
     'page': deploy_page,
     'quarto-slides': deploy_quarto_slides,
@@ -278,7 +281,7 @@ def get_stale_resources(
     stale = [
         (rtype, rid, canvas_info)
         for (rtype, rid), _ in md5s.items()
-        if (rtype, rid) not in resources and rtype not in ['syllabus', 'course_settings', 'quiz_question_order']
+        if (rtype, rid) not in resources and rtype not in ALWAYS_RETAINED_RESOURCE_TYPES
         if allowed_types is None or rtype in allowed_types
         if (canvas_info := md5s.get_canvas_info((rtype, rid)))
     ]
@@ -458,6 +461,8 @@ def _deploy_resources(course: Course, to_deploy: dict, md5s: MD5Sums, report: De
                     resource_objs[resource_key] = canvas_obj_info
                     if url := canvas_obj_info.get('url'):
                         report.add_deployed_content(rtype, rid, url)
+                    elif rtype == 'navigation':
+                        report.add_deployed_content(rtype, rid)
 
             if info:
                 rname, link = info

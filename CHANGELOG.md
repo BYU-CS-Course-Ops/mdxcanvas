@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.9 - 2026-09-02
+
+### Added
+
+- Added control for Canvas Course Navigation using `<navigation>` and ordered `<tab name="..."/>` elements.
+
 ## 0.7.8 - 2026-08-21
 
 ### Fixed

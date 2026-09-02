@@ -2,11 +2,18 @@ import os
 
 from pathlib import Path
 
+import pytest
+
 from mdxcanvas.main import get_course, load_config, main as deploy
 from mdxcanvas.erasecanvas.main import main as erasecanvas
 
 
 CANVAS_API_TOKEN = os.environ.get("CANVAS_API_TOKEN", "")
+
+pytestmark = pytest.mark.skipif(
+    not CANVAS_API_TOKEN,
+    reason="CANVAS_API_TOKEN is required for Canvas integration tests",
+)
 
 
 def _test_canvas_object_update_name(
@@ -36,7 +43,8 @@ def _test_canvas_object_update_name(
     # Erase canvas to start fresh
     erasecanvas(
         canvas_api_token=CANVAS_API_TOKEN,
-        course_info=course_info
+        course_info=course_info,
+        confirmed_delete=True,
     )
 
     # Deploy the main file

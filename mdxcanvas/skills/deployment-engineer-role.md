@@ -45,6 +45,7 @@ Treat the behavior of the **installed `mdxcanvas` Python distribution** as autho
 | Validation | The normal CLI connects to Canvas **before** rendering/parsing. There is no safe validation-only CLI flag. | Use the local, no-Canvas validation procedure below. |
 | Failures | `mdxcanvas.main` catches errors and writes/prints a report rather than re-raising them. | Do not trust process exit status alone; inspect report `error`, stderr, and Canvas state. |
 | Ledger | `_md5sums.json` is downloaded from and uploaded to Canvas; version migrations can query Canvas and delete stale quiz questions. | Ledger inspection is read-only only when done separately; invoking deployment logic is mutating. |
+| Course navigation | A changed `<navigation>` checksum reconciles listed tabs and hides unlisted manageable tabs. An unchanged checksum performs no tab inspection. | Review the authoritative list and current Canvas/LTI policy; a failure can leave earlier tab updates applied without advancing the checksum. |
 
 Course-info files must contain only non-secret target configuration and must always be checked into version control. Never put credentials, tokens, signed URLs, or other secrets in them. Keep `CANVAS_API_TOKEN` and `.env` files uncommitted.
 
@@ -384,6 +385,7 @@ Consequences:
 - Reusing one Canvas course across repositories reuses one ledger and deletion namespace.
 - Manual deletion or copied courses can leave ledger IDs that no longer exist.
 - Changing a stable source ID usually appears as one new resource plus one stale old resource; it is not a rename.
+- Course navigation is one fixed-identity resource. Manual navigation drift persists while its checksum is unchanged, and cleanup retains its checksum even when the source block is absent.
 
 Download and inspect the ledger only through read-only calls. Do not invoke `MD5Sums` merely to inspect it because entering/exiting that context uploads the ledger. Locate `_md5sums.json` among `course.get_files()`, fetch its private URL without logging it, parse it in memory, and compare its `resources` keys and Canvas IDs with the local graph and observed Canvas objects. Protect the downloaded file as operational data.
 
@@ -423,7 +425,8 @@ Know the breadth of the rendered graph before authorizing it:
 - quiz overrides translate the tracked quiz ID to its Canvas assignment ID;
 - files, zips, Mermaid images, and Quarto output are uploaded again; missing Canvas folders are created hidden;
 - announcements are Canvas discussion topics restricted to announcements;
-- timestamps are generated at deployment time after checksum comparison, so they do not by themselves force a change on each run.
+- timestamps are generated at deployment time after checksum comparison, so they do not by themselves force a change on each run;
+- navigation matches exact case-sensitive labels, rejects Home and Settings, and authoritatively hides every unlisted manageable tab. An empty block hides all manageable tabs; no block leaves navigation unchanged. Canvas/LTI policy may still keep a listed tool hidden from students. A successful reconciliation is reported once for navigation, not for each tab.
 
 These behaviors are reasons to inspect resource data and Canvas state, not just source filenames or the number of changed files.
 
@@ -561,7 +564,7 @@ Normal deployment updates changed resources **and removes stale tracked quiz que
 
 ### Full tracked cleanup (`--cleanup`)
 
-`--cleanup` removes all eligible ledger-tracked stale resource types, with module items, quiz questions, and overrides prioritized before broader resources. It does not mean “only clean up,” and it does not necessarily remove untracked Canvas content.
+`--cleanup` removes all eligible ledger-tracked stale resource types, with module items, quiz questions, and overrides prioritized before broader resources. It does not mean “only clean up,” and it does not necessarily remove untracked Canvas content. Course navigation is always excluded: cleanup neither resets tabs nor removes its retained checksum.
 
 Require a separate target summary, exact stale list, and explicit confirmation. Never append it casually after a deployment. Recheck submitted quizzes, shared files, pages linked externally, and manually maintained content.
 
@@ -593,7 +596,7 @@ Verify at minimum:
 - ledger version, keys, checksums, Canvas IDs, and target course are coherent;
 - assignments/quizzes have correct publication, points, groups, due/unlock/lock dates, overrides, and links;
 - modules have correct order, item targets, and publication state;
-- pages, syllabus, announcements, files, folders, and course settings are correct;
+- pages, syllabus, announcements, files, folders, course settings, and Course Navigation tab order/visibility are correct;
 - uploaded files/zips open and contain only intended content;
 - sensitive exams, keys, solutions, and instructor-only files are not exposed;
 - stale resources expected to disappear are gone and unrelated resources remain;
@@ -614,7 +617,7 @@ Therefore:
 
 ## Failure handling
 
-A failure may occur after resource creation/update, stale deletion, migration, or ledger upload. Threaded deployment means partial success is normal failure behavior.
+A failure may occur after resource creation/update, stale deletion, migration, or ledger upload. Threaded deployment means partial success is normal failure behavior. Navigation updates themselves are serial, but a later tab failure does not roll back earlier tab changes and does not advance the navigation checksum.
 
 1. Stop; do not auto-rerun.
 2. Preserve the command, course-source revision, installed MDXCanvas version, timestamps, report, and sanitized logs.

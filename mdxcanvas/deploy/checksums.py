@@ -9,7 +9,7 @@ from canvasapi.course import Course
 
 from .file import get_file, deploy_file
 from ..our_logging import get_logger
-from ..resources import CanvasResource, FileData, MermaidData, QuartoSlidesData, SyllabusData, ZipFileData
+from ..resources import CanvasResource, FileData, MermaidData, NavigationData, QuartoSlidesData, SyllabusData, ZipFileData
 from ..util import to_relative_posix, relative_to_abs
 
 logger = get_logger()
@@ -40,7 +40,7 @@ def _normalize_json_for_hashing(data: dict) -> str:
     return normalized
 
 
-def compute_md5(obj: CanvasResource | FileData | ZipFileData | MermaidData | QuartoSlidesData | SyllabusData,
+def compute_md5(obj: CanvasResource | FileData | ZipFileData | MermaidData | NavigationData | QuartoSlidesData | SyllabusData,
                 deploy_root: Path) -> str:
     # Keys that should not affect change detection:
     # - canvas_id: injected by the deployment system at runtime
