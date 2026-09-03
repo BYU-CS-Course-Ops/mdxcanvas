@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.10 - 2026-09-02
+
+### Fixed
+
+- Changed Quarto slide links to open standalone Reveal.js decks in a new browser tab instead of Canvas's file preview pane.
+
 ## 0.7.9 - 2026-09-02
 
 ### Added
