@@ -2,7 +2,6 @@ from pathlib import Path
 
 from bs4.element import Tag
 
-from .tag_preprocessors import make_file_anchor_tag
 from ..error_helpers import validate_required_attribute, format_tag, get_file_path
 from ..processing_context import get_current_file_str
 from ..resources import QuartoSlidesData
@@ -61,9 +60,17 @@ def make_quarto_slides_preprocessor(deploy_root: Path, parent: Path, resources: 
             content_path=get_current_file_str()
         )
 
-        resource_key = resources.add_resource_get_field(file, 'uri')
+        resource_key = resources.add_resource_get_field(file, 'url')
 
-        new_tag = make_file_anchor_tag(resource_key, name)
+        new_tag = Tag(
+            name='a',
+            attrs={
+                'href': resource_key,
+                'target': '_blank',
+                'rel': 'noopener noreferrer',
+            },
+        )
+        new_tag.string = name
         tag.replace_with(new_tag)
 
     return process_quarto_slides

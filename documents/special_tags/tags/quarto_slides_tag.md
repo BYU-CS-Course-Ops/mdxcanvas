@@ -2,6 +2,8 @@
 
 The `<quarto-slides>` tag renders a Quarto `.qmd` slide source and uploads the generated HTML deck to Canvas as a file link.
 
+The link opens the standalone HTML file in a new browser tab rather than Canvas's file preview pane, allowing Reveal.js to render the deck correctly.
+
 This is useful when you want to keep lecture slides in Quarto while still distributing them through course content pages.
 
 For repository-wide migration help when updating legacy content to explicit `id` attributes, see the [AI migration prompt](../../migrating_to_explicit_ids.md).
