@@ -62,10 +62,13 @@ def make_quarto_slides_preprocessor(deploy_root: Path, parent: Path, resources: 
 
         resource_key = resources.add_resource_get_field(file, 'url')
 
+        # Canvas sandboxes HTML file responses, so Reveal.js cannot run when
+        # the generated deck is opened in Canvas. Requesting the file with
+        # download_frd=1 gives students a direct download instead.
         new_tag = Tag(
             name='a',
             attrs={
-                'href': resource_key,
+                'href': f'{resource_key}?download_frd=1',
                 'target': '_blank',
                 'rel': 'noopener noreferrer',
             },
