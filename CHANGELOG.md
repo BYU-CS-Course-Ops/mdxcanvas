@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.11 - 2026-09-10
+
+### Fixed
+
+- Made Quarto slide downloads self-contained by bundling local JavaScript, CSS, images, and other assets into the generated HTML file.
+
 ## 0.7.10 - 2026-09-02
 
 ### Fixed

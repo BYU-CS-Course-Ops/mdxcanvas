@@ -129,36 +129,73 @@ def _bundle_js(html: str, base_dir: Path) -> str:
     return pattern.sub(repl, html)
 
 
+def _data_url(url: str, base_dir: Path, source_dir: Path | None = None) -> str | None:
+    """Return a data URL for a local asset, or None for non-local assets."""
+    url = url.strip().strip(" \\\"'")
+    if _is_external(url) or url.startswith('#'):
+        return None
+
+    # Query strings and fragments are not part of the filesystem path, but
+    # should not prevent us from recognizing a local asset.
+    parsed = urlparse(url)
+    asset = ((source_dir or base_dir) / parsed.path).resolve()
+    if not asset.is_file():
+        return None
+
+    mime, _ = mimetypes.guess_type(asset.name)
+    mime = mime or "application/octet-stream"
+    data = base64.b64encode(asset.read_bytes()).decode("ascii")
+    return f"data:{mime};base64,{data}"
+
+
+def _inline_css_urls(css: str, stylesheet: Path, base_dir: Path) -> str:
+    def repl(match: re.Match[str]) -> str:
+        url = match.group(1).strip().strip(" \\\"'")
+        data_url = _data_url(url, base_dir, stylesheet.parent)
+        return f'url("{data_url}")' if data_url else match.group(0)
+
+    return re.sub(r"url\(\s*([^)]*?)\s*\)", repl, css, flags=re.IGNORECASE)
+
+
 def _inline_css(html: str, base_dir: Path) -> str:
     def repl(match: re.Match[str]) -> str:
-        href = match.group(1)
-        if _is_external(href):
-            return match.group(0)
-        asset = (base_dir / href).resolve()
-        if not asset.exists():
-            return match.group(0)
-        css = _read_text(asset)
+        attrs = match.group(0)
+        href_match = re.search(r"\bhref\s*=\s*(['\"])(.*?)\1", attrs, re.IGNORECASE)
+        if not href_match:
+            return attrs
+        href = href_match.group(2)
+        asset = (base_dir / urlparse(href).path).resolve()
+        if _data_url(href, base_dir) is None or not asset.is_file():
+            return attrs
+        css = _inline_css_urls(_read_text(asset), asset, base_dir)
         return f"<style>\n{css}\n</style>"
 
-    pattern = re.compile(r"<link\s+[^>]*rel=\"stylesheet\"[^>]*href=\"([^\"]+)\"[^>]*>")
-    return pattern.sub(repl, html)
+    # Quarto does not guarantee the order of link attributes or quote style.
+    def is_stylesheet(match: re.Match[str]) -> str:
+        attrs = match.group(0)
+        rel_match = re.search(r"\brel\s*=\s*(['\"])(.*?)\1", attrs, re.IGNORECASE)
+        if rel_match and "stylesheet" in rel_match.group(2).lower().split():
+            return repl(match)
+        return attrs
+
+    pattern = re.compile(r"<link\b[^>]*>", re.IGNORECASE)
+    return pattern.sub(is_stylesheet, html)
 
 
 def _inline_assets(html: str, base_dir: Path) -> str:
     def repl(match: re.Match[str]) -> str:
-        attr = match.group(1)
-        url = match.group(2)
-        if _is_external(url):
+        attr, quote, url = match.group(1), match.group(2), match.group(3)
+        data_url = _data_url(url, base_dir)
+        if not data_url:
             return match.group(0)
-        asset = (base_dir / url).resolve()
-        if not asset.exists():
-            return match.group(0)
-        mime, _ = mimetypes.guess_type(asset.name)
-        mime = mime or "application/octet-stream"
-        data = base64.b64encode(asset.read_bytes()).decode("ascii")
-        return f"{attr}=\"data:{mime};base64,{data}\""
+        return f"{attr}={quote}{data_url}{quote}"
 
-    pattern = re.compile(r"\b(src|href)=\"([^\"]+)\"")
+    # Inline image/script resources while leaving links between HTML pages
+    # untouched. Stylesheets are handled separately by _inline_css.
+    pattern = re.compile(
+        r"<(?:img|script|source)\b[^>]*?\b(src)\s*=\s*(['\"])(.*?)\2",
+        re.IGNORECASE,
+    )
     return pattern.sub(repl, html)
 
 

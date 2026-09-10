@@ -4,7 +4,7 @@ from mdxcanvas.resources import ResourceManager
 from mdxcanvas.xml_processing.xml_processing import preprocess_xml
 
 
-def test_quarto_slides_link_opens_standalone_file_in_new_tab(tmp_path):
+def test_quarto_slides_link_downloads_file_from_canvas(tmp_path):
     slide_file = tmp_path / "lecture.qmd"
     slide_file.write_text("---\nformat: revealjs\n---\n")
     resources = ResourceManager()
@@ -20,7 +20,7 @@ def test_quarto_slides_link_opens_standalone_file_in_new_tab(tmp_path):
     link = BeautifulSoup(html, "html.parser").a
 
     assert link is not None
-    assert link["href"] == "__@@quarto-slides||lecture.slides.html||url@@__"
+    assert link["href"] == "__@@quarto-slides||lecture.slides.html||url@@__?download_frd=1"
     assert link["target"] == "_blank"
     assert link["rel"] == ["noopener", "noreferrer"]
     assert "class" not in link.attrs
