@@ -1,0 +1,18 @@
+---
+title: "MDXCanvas Release Smoke Test"
+format: revealjs
+---
+
+## Source to Canvas
+
+1. Render Jinja
+2. Process Markdown and special tags
+3. Build the resource graph
+4. Deploy to a sandbox
+
+## Verification
+
+- Resources have stable IDs
+- Internal links resolve
+- Files and generated assets open
+- A second deployment is idempotent

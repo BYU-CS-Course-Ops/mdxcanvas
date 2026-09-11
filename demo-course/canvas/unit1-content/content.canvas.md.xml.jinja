@@ -1,0 +1,35 @@
+<div>
+    {% for title, unit in load('lesson.md').items() %}
+    {{ debug('Loaded MarkdownData unit: ' ~ title) }}
+    <page id="{{ unit['content']['id'] }}" title="{{ title }} Notes">
+        # {{ title }}
+
+        {{ unit['Notes'] }}
+
+        {% set topic_names = split_list(TOPICS) %}
+        {% for number, topic in zip([1, 2, 3], topic_names) %}
+        {{ number }}. {{ topic | title }}
+        {% endfor %}
+
+        {{ read_file('footer.md') }}
+    </page>
+    {% endfor %}
+
+    <include path="assignments.canvas.md.xml.jinja" args="assignments.yaml" usediv="false"/>
+
+    <quiz id="content-check" title="Content Pattern Check"
+          assignment_group="quizzes" quiz_type="graded_survey" position="2"
+          due_at="{{ get_arg('UNIT_1_DUE') }}, {{ YEAR }}, 11:59 PM"
+          available_to="{{ COURSE_END }}, {{ YEAR }}, 11:59 PM"
+          one_question_at_a_time="true" cant_go_back="false"
+          show_correct_answers="false" hide_results="always" one_time_results="true">
+        <description>
+            This short survey links to <course-link type="assignment" id="code-lab"/>.
+        </description>
+        <questions>
+            <question id="content-reflection" type="essay" points="1">
+                Which source organization pattern was easiest to inspect?
+            </question>
+        </questions>
+    </quiz>
+</div>

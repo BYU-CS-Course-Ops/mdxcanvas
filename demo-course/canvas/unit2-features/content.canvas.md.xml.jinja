@@ -1,0 +1,62 @@
+<div>
+    <page id="asset-gallery" title="Files, Includes, and Zip Archives"
+          publish_at="{{ UNIT_2_DUE }}, {{ YEAR }}, 8:00 AM">
+        # Asset gallery
+
+        A time-bounded file in a Canvas folder:
+
+        <file path="assets/reference.txt" canvas_folder="Demo Course/References"
+              unlock_at="{{ COURSE_START }}, {{ YEAR }}, 8:00 AM"
+              lock_at="{{ COURSE_END }}, {{ YEAR }}, 11:59 PM"/>
+
+        A generated archive uses a priority overlay, an additional file, and a regex exclusion:
+
+        <zip path="assets/base" priority_path="assets/priority"
+             additional_files="assets/LICENSE.txt" exclude=".*\\.tmp$"
+             name="starter-kit.zip" canvas_folder="Demo Course/Archives"
+             unlock_at="{{ COURSE_START }}, {{ YEAR }}, 8:00 AM"
+             lock_at="{{ COURSE_END }}, {{ YEAR }}, 11:59 PM"/>
+
+        This internal file link resolves independently of the generated download link:
+        <course-link type="file" id="reference.txt">open the reference file</course-link>.
+    </page>
+
+    <page id="diagram-gallery" title="Mermaid Diagram Gallery">
+        # Mermaid diagrams
+
+        A fenced diagram:
+
+        ```mermaid {: alt="Three-step deployment flow" name="deployment-flow" class="diagram"}
+        flowchart LR
+            Source --> DryRun[Dry run] --> Sandbox
+        ```
+
+        An inline tag:
+
+        <mermaid name="decision-flow.png" alt="Decision flow for a release test" class="diagram" theme="forest">
+            flowchart TD
+                A[Dry run clean?] -->|Yes| B[Deploy to sandbox]
+                A -->|No| C[Fix source]
+                C --> A
+        </mermaid>
+
+        A diagram loaded from a file:
+
+        <mermaid path="diagrams/resource-graph.mmd" canvas_folder="Demo Course/Diagrams"
+                 unlock_at="{{ COURSE_START }}, {{ YEAR }}, 8:00 AM"
+                 lock_at="{{ COURSE_END }}, {{ YEAR }}, 11:59 PM"
+                 alt="MDXCanvas resource graph" class="diagram"/>
+    </page>
+
+    <page id="slides-gallery" title="Quarto Slides Gallery">
+        # Quarto slides
+
+        <quarto-slides path="slides/release-smoke-test.qmd"
+                       name="release-smoke-test.html"
+                       canvas_folder="Demo Course/Slides"
+                       unlock_at="{{ COURSE_START }}, {{ YEAR }}, 8:00 AM"
+                       lock_at="{{ COURSE_END }}, {{ YEAR }}, 11:59 PM"/>
+    </page>
+
+    <include path="questions.canvas.md.xml.jinja" usediv="false"/>
+</div>

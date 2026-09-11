@@ -1,0 +1,4 @@
+CANVAS_API_URL: https://canvas.example.edu/
+CANVAS_COURSE_ID: 12345
+LOCAL_TIME_ZONE: America/Denver
+DEPLOY_ROOT: .

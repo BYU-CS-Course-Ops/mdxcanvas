@@ -1,0 +1,92 @@
+<div>
+    <page id="welcome" title="Welcome to the Integration Course"
+          front_page="true" published="true" notify_of_update="false">
+        # Welcome
+
+        This is a compact release-check course. *Rendered on <timestamp format="%Y-%m-%d"/>.*
+
+        <img src="../../assets/course-card.png" canvas_folder="Demo Course/Images"
+             alt="Blue geometric MDXCanvas demo course card" width="600"/>
+
+        Use the <course-link type="syllabus" id="syllabus">course checklist</course-link>, then visit
+        <course-link type="page" id="content-showcase" fragment="included-content">the included-content example</course-link>.
+        The later <course-link type="module" id="unit-2">feature gallery module</course-link> exercises uncommon tags,
+        and <course-link type="announcement" id="welcome-announcement">the welcome announcement</course-link> verifies announcement links.
+
+        <div class="callout-demo">This HTML block receives CSS from the command-line stylesheet.</div>
+    </page>
+
+    <page id="content-showcase" title="Content and Include Showcase"
+          student_todo_at="{{ COURSE_START }}, {{ YEAR }}, 9:00 AM"
+          editing_roles="teachers,students">
+        # Rich content
+
+        Markdown supports **emphasis**, `inline code`, lists, tables, block quotes, and math such as \(T(n)=O(n\log n)\).
+
+        | Source | Pattern |
+        |---|---|
+        | CS 110 | discovery-driven units |
+        | CS 312 | rich quizzes and file resources |
+        | CS 301R | MarkdownData/Jinja generation |
+
+        ## Included content
+
+        <include path="snippet.md"/>
+
+        ## Fenced source excerpt
+
+        <include path="example.py" lines="2:4" fenced="true" include_filename="true"/>
+
+        <include path="unwrapped.md" usediv="false"/>
+
+        An external image remains external:
+        <img src="https://www.python.org/static/community_logos/python-logo-generic.svg"
+             alt="Python logo" width="300"/>
+    </page>
+
+    <md-page id="release-checklist" path="release-checklist.md"/>
+
+    <announcement id="welcome-announcement" title="Integration test is ready"
+                  publish_date="{{ ANNOUNCEMENT_DATE }}, {{ YEAR }}, 8:00 AM">
+        Review <course-link type="page" id="release-checklist"/> before the live smoke test.
+        The complete assessment is <course-link type="quiz" id="question-gallery">Question Gallery</course-link>.
+    </announcement>
+
+    <quiz id="setup-check" title="Setup Check"
+          quiz_type="practice_quiz"
+          assignment_group="quizzes"
+          due_at="{{ UNIT_1_DUE }}, {{ YEAR }}, 11:59 PM"
+          available_from="{{ COURSE_START }}, {{ YEAR }}, 8:00 AM"
+          available_to="{{ COURSE_END }}, {{ YEAR }}, 11:59 PM"
+          show_correct_answers_at="{{ UNIT_1_DUE }}, {{ YEAR }}, 11:59 PM"
+          allowed_attempts="3" scoring_policy="keep_highest"
+          shuffle_answers="true" points_possible="3"
+          {% if TEST_SECTION_IDS %}only_visible_to_overrides="true"{% endif %}>
+        <description>
+            Follow the <course-link type="page" id="release-checklist">release checklist</course-link>.
+        </description>
+        <questions>
+            <question id="setup-text" type="text">These questions verify common quiz rendering.</question>
+            <question id="setup-tf" type="true-false" answer="true" points="1"
+                      correct-comments="Correct." incorrect-comments="Use a dedicated sandbox.">
+                This course should be deployed only to a sandbox.
+            </question>
+            <question id="setup-choice" type="multiple-choice" points="2">
+                Which command previews deployment without mutation?
+                <correct answer_comments="Correct: inspect the plan first.">`--dry-run`</correct>
+                <incorrect answer_comments="This allows stale content to remain.">`--no-cleanup`</incorrect>
+                <incorrect>`--debug`</incorrect>
+            </question>
+        </questions>
+        {% if TEST_SECTION_IDS %}
+        <overrides>
+            {% for section_id in TEST_SECTION_IDS %}
+            <override section_id="{{ section_id }}"
+                      due_at="{{ UNIT_1_DUE }}, {{ YEAR }}, 10:00 PM"
+                      available_from="{{ COURSE_START }}, {{ YEAR }}, 9:00 AM"
+                      available_to="{{ COURSE_END }}, {{ YEAR }}, 10:00 PM"/>
+            {% endfor %}
+        </overrides>
+        {% endif %}
+    </quiz>
+</div>

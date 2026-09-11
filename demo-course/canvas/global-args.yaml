@@ -1,0 +1,11 @@
+COURSE_NAME: MDXCanvas Integration Course
+COURSE_CODE: MDXC-DEMO
+YEAR: 2030
+COURSE_START: Jan 7
+UNIT_1_DUE: Jan 14
+UNIT_2_DUE: Jan 21
+COURSE_END: Apr 18
+ANNOUNCEMENT_DATE: Jan 7
+EXTERNAL_LINK: https://canvas.instructure.com/doc/api/
+TOPICS: pages;assignments;quizzes
+TEST_SECTION_IDS: []

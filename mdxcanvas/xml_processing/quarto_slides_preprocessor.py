@@ -9,22 +9,26 @@ from ..resources import ResourceManager, CanvasResource
 from ..util import find_quarto_root, to_relative_posix
 
 
-def _find_quarto_dependencies(quarto_root: Path, deploy_root: Path) -> list[str]:
-    deps = []
+IGNORED_QUARTO_DIRECTORIES = {".git", ".quarto", "_freeze", "__pycache__"}
 
-    quarto_yaml = quarto_root / '_quarto.yaml'
-    if quarto_yaml.exists():
-        deps.append(to_relative_posix(quarto_yaml, deploy_root))
 
-    quarto_yaml = quarto_root / '_quarto.yml'
-    if quarto_yaml.exists():
-        deps.append(to_relative_posix(quarto_yaml, deploy_root))
-
-    extensions = quarto_root / '_extensions'
-    if extensions.exists():
-        deps.append(to_relative_posix(extensions, deploy_root))
-
-    return deps
+def _find_quarto_dependencies(
+        quarto_root: Path,
+        generated_output: Path,
+        deploy_root: Path,
+) -> list[str]:
+    generated_files = f"{generated_output.stem}_files"
+    dependencies = []
+    for path in quarto_root.rglob("*"):
+        relative_parts = path.relative_to(quarto_root).parts
+        if (
+                path.is_file()
+                and path != generated_output
+                and generated_files not in relative_parts
+                and not IGNORED_QUARTO_DIRECTORIES.intersection(relative_parts)
+        ):
+            dependencies.append(to_relative_posix(path, deploy_root))
+    return dependencies
 
 
 def make_quarto_slides_preprocessor(deploy_root: Path, parent: Path, resources: ResourceManager):
@@ -43,7 +47,10 @@ def make_quarto_slides_preprocessor(deploy_root: Path, parent: Path, resources: 
             name = qmd_file.name.replace('.qmd', '.slides.html')
 
         quarto_root = find_quarto_root(qmd_file)
-        checksum_paths = [to_relative_posix(qmd_file, deploy_root)] + _find_quarto_dependencies(quarto_root, deploy_root)
+        # Quarto sources can reference any local asset under the project root.
+        # Track project inputs so changing an image triggers a new upload.
+        generated_output = qmd_file.parent / str(name)
+        checksum_paths = _find_quarto_dependencies(quarto_root, generated_output, deploy_root)
 
         file = CanvasResource(
             type='quarto-slides',
