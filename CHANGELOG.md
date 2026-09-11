@@ -11,14 +11,12 @@
 ### Changed
 
 - Made source authoritative by default: omitted tracked resources are deleted or untracked according to resource policy. Use `--no-cleanup` for targeted deployments; the former `--cleanup` option is removed.
-- Made dry-run read-only for Canvas resources and the deployment ledger while reporting the exact planned actions.
+- Made `--dry-run` read-only for Canvas resources and the deployment ledger while reporting the exact planned actions.
 - Updated deployment and erase behavior to use the unified resource-handler pipeline and deterministic ledger state.
 
 ### Fixed
 
-- Preserved completed ledger state after partial failures and, when possible, interrupted deployments.
-- Preserved actionable quiz review names and links, including nullable review URLs.
-- Added Canvas links for file-like resources and contextualized deployment failures while summarizing blocked resources.
+- `--dry-run` now correctly reports expected changes without changing Canvas resources.
 
 ## 0.7.11 - 2026-09-10
 

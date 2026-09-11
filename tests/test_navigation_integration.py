@@ -110,4 +110,4 @@ def test_changed_navigation_records_one_checksum_and_one_url_less_report_entry(m
         "resource_id": "navigation",
         "outcome": "created",
     }]
-    assert report.report["deployment"]["content_to_review"] == []
+    assert report.report["content_to_review"] == []

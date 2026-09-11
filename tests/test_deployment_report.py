@@ -18,9 +18,11 @@ def test_default_report_uses_nested_deployment_contract(tmp_path):
             "cleanup": "enabled",
             "expected_changes": [],
             "changes_made": [],
-            "content_to_review": [],
             "errors": [],
         },
+        "deployed_content": [],
+        "content_to_review": [],
+        "error": "",
     }
     assert report.report == expected
     assert json.loads(output.read_text()) == expected
@@ -63,6 +65,7 @@ def test_errors_retain_bounded_useful_type_and_message_diagnostics():
         "RuntimeError: Canvas rejected the update",
         "OSError: ledger upload was refused",
     ]
+    assert report.report["error"] == "\n".join(messages)
 
     long_report = DeploymentReport()
     long_report.add_error(RuntimeError("line one\n" + "x" * 500))
@@ -106,7 +109,7 @@ def all_keys(value):
             yield from all_keys(child)
 
 
-def test_public_report_shape_has_no_legacy_or_private_fields():
+def test_public_report_shape_has_legacy_compatibility_without_private_fields():
     report = DeploymentReport()
 
     keys = set(all_keys(report.report))
@@ -120,9 +123,9 @@ def test_public_report_shape_has_no_legacy_or_private_fields():
         "changes_made",
         "content_to_review",
         "errors",
+        "deployed_content",
     }
     assert keys.isdisjoint({
-        "deployed_content",
         "review_required",
         "planned_changes",
         "checksum",
@@ -155,10 +158,10 @@ def test_review_metadata_is_retained_per_change_and_summary_is_ordered_and_dedup
         {"name": "Submitted quiz", "url": None},
         {"name": "First page", "url": "https://safe/first"},
     ]
-    assert report.report["deployment"]["content_to_review"] == [
-        {"resource_type": "page", "name": "First page", "url": "https://safe/first"},
-        {"resource_type": "quiz", "name": "Submitted quiz", "url": None},
-        {"resource_type": "quiz", "name": "First page", "url": "https://safe/first"},
+    assert report.report["content_to_review"] == [
+        ["page", "First page", "https://safe/first"],
+        ["quiz", "Submitted quiz", None],
+        ["quiz", "First page", "https://safe/first"],
     ]
     assert "review_required" not in set(all_keys(report.report))
     report.save_report()
@@ -175,7 +178,7 @@ def test_absent_review_adds_no_signal_or_summary_entry():
 
     change = report.report["deployment"]["changes_made"][0]
     assert "review" not in change
-    assert report.report["deployment"]["content_to_review"] == []
+    assert report.report["content_to_review"] == []
     assert "review_required" not in set(all_keys(report.report))
 
 
@@ -211,6 +214,11 @@ def test_human_report_groups_successes_by_link_with_course_fallback(capsys):
     assert output.count(course_url) == 2  # Once alone and once as part of the quiz URL.
     assert "updated navigation tabs: https://canvas.example/courses/42" in output
     assert "url" not in report.report["deployment"]["changes_made"][2]
+    assert report.report["deployed_content"] == [
+        ["quiz", "quiz", quiz_url],
+        ["quiz_question", "q1", quiz_url],
+        ["navigation", "tabs", None],
+    ]
 
 
 def test_human_report_shows_contextual_failures_and_one_blocked_count(capsys):

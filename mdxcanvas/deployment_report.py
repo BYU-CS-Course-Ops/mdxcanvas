@@ -41,9 +41,11 @@ class DeploymentReport:
                 "cleanup": "enabled",
                 "expected_changes": [],
                 "changes_made": [],
-                "content_to_review": [],
                 "errors": [],
             },
+            "deployed_content": [],
+            "content_to_review": [],
+            "error": "",
         }
 
     @property
@@ -65,9 +67,14 @@ class DeploymentReport:
     def add_change_made(self, change, outcome: str, *, url: str | None = None,
                         review: ReviewInfo | None = None):
         item = change.public() if hasattr(change, "public") else dict(change)
-        item["outcome"] = getattr(outcome, "value", outcome)
+        outcome = getattr(outcome, "value", outcome)
+        item["outcome"] = outcome
         if url:
             item["url"] = url
+        if outcome in {"created", "updated"}:
+            self.report["deployed_content"].append([
+                item["resource_type"], item["resource_id"], url,
+            ])
         if review is not None:
             item["review"] = {"name": review.name, "url": review.url}
         self.report["deployment"]["changes_made"].append(item)
@@ -84,12 +91,12 @@ class DeploymentReport:
             if key in seen:
                 continue
             seen.add(key)
-            content.append({
-                "resource_type": change["resource_type"],
-                "name": review["name"],
-                "url": review["url"],
-            })
-        self.report["deployment"]["content_to_review"] = content
+            content.append([
+                change["resource_type"],
+                review["name"],
+                review["url"],
+            ])
+        self.report["content_to_review"] = content
 
     def add_deployment_error(
             self, stage: str, error: Exception, change=None,
@@ -107,9 +114,18 @@ class DeploymentReport:
         if action:
             item["action"] = action
         self.report["deployment"]["errors"].append(item)
+        self._derive_legacy_error()
 
     def add_error(self, error: Exception):
         self.report["processing"]["error"] = _safe_error(error)
+        self._derive_legacy_error()
+
+    def _derive_legacy_error(self):
+        errors = [
+            self.report["processing"]["error"],
+            *(item["error"] for item in self.report["deployment"]["errors"]),
+        ]
+        self.report["error"] = "\n".join(error for error in errors if error)
 
     def save_report(self):
         if self.output_file:
@@ -132,11 +148,11 @@ class DeploymentReport:
             for url, labels in groups.items():
                 line = ", ".join(labels)
                 print(f"{line}: {url}" if url else line)
-        if deployment["content_to_review"]:
+        if self.report["content_to_review"]:
             print(" Content to Review ".center(60, "-"))
-            for item in deployment["content_to_review"]:
-                suffix = f" ({item['url']})" if item["url"] else ""
-                print(f"{item['resource_type']}: {item['name']}{suffix}")
+            for resource_type, name, url in self.report["content_to_review"]:
+                suffix = f" ({url})" if url else ""
+                print(f"{resource_type}: {name}{suffix}")
         if self.report["processing"]["error"]:
             print(self.report["processing"]["error"], file=sys.stderr)
         blocked_resources = set()

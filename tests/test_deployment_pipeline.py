@@ -202,7 +202,7 @@ def test_failure_blocks_descendant_unrelated_work_persists_and_save_error_is_sep
 
     assert set(calls) == {"parent", "unrelated"}
     assert "child" not in calls
-    assert report.report["deployment"]["content_to_review"] == []
+    assert report.report["content_to_review"] == []
     assert [item["resource_id"] for item in report.report["deployment"]["changes_made"]] == ["unrelated"]
     errors = report.report["deployment"]["errors"]
     assert [(item["stage"], item.get("resource_id")) for item in errors] == [
@@ -257,8 +257,8 @@ def test_review_reporting_uses_plan_order_and_handler_metadata_only(monkeypatch,
     assert changes[0]["review"] == {"name": "Shared target", "url": None}
     assert changes[1]["review"] == {"name": "Shared target", "url": None}
     assert "review" not in changes[2]
-    assert report.report["deployment"]["content_to_review"] == [
-        {"resource_type": "page", "name": "Shared target", "url": None},
+    assert report.report["content_to_review"] == [
+        ["page", "Shared target", None],
     ]
     assert "content_to_review" not in store.saves[0]["resources"]["page|first"]
     assert "review" not in store.saves[0]["resources"]["page|first"]
@@ -295,9 +295,9 @@ def test_cycle_shell_and_full_results_retain_review_on_each_success(monkeypatch,
     assert all(change["review"] == {
         "name": "Cycle review", "url": "https://safe/cycle",
     } for change in changes)
-    assert report.report["deployment"]["content_to_review"] == [{
-        "resource_type": "page", "name": "Cycle review", "url": "https://safe/cycle",
-    }]
+    assert report.report["content_to_review"] == [
+        ["page", "Cycle review", "https://safe/cycle"],
+    ]
 
 
 def test_bookkeeping_failure_does_not_retry_canvas_handler(monkeypatch, tmp_path):

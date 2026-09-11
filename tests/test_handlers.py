@@ -1,6 +1,7 @@
 import copy
 import importlib
 from dataclasses import FrozenInstanceError
+from types import SimpleNamespace
 
 import pytest
 
@@ -96,6 +97,41 @@ def test_legacy_deployer_review_tuple_becomes_immutable_metadata_without_url_inf
     assert ordinary.url == "https://outcome-only"
     assert ordinary.review is None
     assert file_result.url == "https://canvas/files/12/download"
+
+
+def test_new_module_item_can_be_created_without_canvas_id(tmp_path):
+    created_data = []
+
+    class CanvasModule:
+        id = "50"
+
+        def create_module_item(self, *, module_item):
+            created_data.append(module_item)
+            return SimpleNamespace(id="60", module_id=self.id)
+
+    class Course:
+        id = "10"
+        canvas = SimpleNamespace(
+            _Canvas__requester=SimpleNamespace(original_url="https://canvas.example"),
+        )
+
+        def get_module(self, module_id):
+            assert module_id == "50"
+            return CanvasModule()
+
+    resource = {
+        "type": "module_item",
+        "id": "lecture5a",
+        "data": {"module_id": "50", "type": "Page", "page_url": "lecture-5a"},
+        "content_path": "course.md",
+    }
+    context = SimpleNamespace(course=Course(), deploy_root=tmp_path)
+
+    result = build_builtin_handlers()["module_item"].create(context, resource)
+
+    assert created_data == [resource["data"]]
+    assert result.canvas_info["id"] == "60"
+    assert result.canvas_info["parent"] == {"type": "module", "id": "50"}
 
 
 def test_submitted_quiz_review_uses_pre_edit_title_and_nullable_safe_url(tmp_path):

@@ -504,7 +504,7 @@ Inspect the report and Canvas through read-only API calls, then use the Canvas U
 Verify at minimum:
 
 - both `processing.error` and `deployment.errors` are empty and expected changes have appropriate outcomes;
-- every item in `deployment.content_to_review` has been inspected in Canvas; use each change's `review` object for action-level context, and locate a null-URL target by its resource type and name;
+- every `[resource_type, name, url]` item in top-level `content_to_review` has been inspected in Canvas; use each change's `review` object for action-level context, and locate a null-URL target by its resource type and name;
 - ledger version, keys, checksums, Canvas IDs, and target course are coherent;
 - assignments/quizzes have correct publication, points, groups, due/unlock/lock dates, overrides, and links;
 - modules have correct order, item targets, and publication state;
@@ -516,14 +516,14 @@ Verify at minimum:
 
 ### Submitted quizzes
 
-Quiz deployment can add review metadata when existing submissions make automatic changes risky. Inspect every item in `deployment.content_to_review` before declaring the deployment complete. A null review URL still requires review; locate the quiz by its reported name and resource type.
+Quiz deployment can add review metadata when existing submissions make automatic changes risky. Inspect every item in top-level `content_to_review` before declaring the deployment complete. A null review URL still requires review; locate the quiz by its reported name and resource type.
 
 Therefore:
 
 - identify submitted quizzes before deployment;
 - identify stale quiz questions before deployment; deletion can affect quiz history and requires instructor review;
 - treat changes to their settings, questions, order, points, and dates as high risk;
-- inspect every `deployment.content_to_review` item in the Canvas UI, consulting matching `changes_made[*].review` objects for action-level context;
+- inspect every top-level `content_to_review` item in the Canvas UI, consulting matching `changes_made[*].review` objects for action-level context;
 - verify student attempt/history implications with the instructor;
 - do not declare the deployment complete until required manual review/save is done.
 

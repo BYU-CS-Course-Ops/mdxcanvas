@@ -45,9 +45,11 @@ def test_dry_run_is_read_only_and_reports_only_safe_planned_transitions(tmp_path
                 "resource_id": "new-assignment",
             }],
             "changes_made": [],
-            "content_to_review": [],
             "errors": [],
         },
+        "deployed_content": [],
+        "content_to_review": [],
+        "error": "",
     }
     serialized = repr(report.report)
     assert "secret body" not in serialized

@@ -18,7 +18,7 @@ def deploy_module_item(course: Course, module_item_data: dict, _: Path) -> tuple
     if canvas_module is None:
         raise ValueError(f'Unable to find module {module_item_data["module_id"]}')
 
-    if module_item_data['canvas_id'] and (
+    if module_item_data.get('canvas_id') and (
             module_item := canvas_module.get_module_item(module_item_data['canvas_id'])):
         module_item.edit(module_item=module_item_data)
     else:

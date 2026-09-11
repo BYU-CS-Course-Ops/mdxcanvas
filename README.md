@@ -147,15 +147,19 @@ The JSON report has this shape:
         "review": {"name": "Chapter check", "url": null}
       }
     ],
-    "content_to_review": [
-      {"resource_type": "quiz", "name": "Chapter check", "url": null}
-    ],
     "errors": []
-  }
+  },
+  "deployed_content": [
+    ["quiz", "chapter-check", "https://canvas.example/courses/1/quizzes/2"]
+  ],
+  "content_to_review": [
+    ["quiz", "Chapter check", null]
+  ],
+  "error": ""
 }
 ```
 
-`content_to_review` is always present, including in dry-run and error reports. A successful change requires manual review only when it has a `review` object; there is no separate boolean flag. A review URL may be `null`. The change's `url` describes the deployment outcome and may differ from the review URL.
+The top-level `deployed_content`, `content_to_review`, and `error` fields retain the 0.7.x report contract for integrations. They are always present. `deployed_content` contains created and updated resources as `[resource_type, resource_id, url]`; `content_to_review` contains `[resource_type, name, url]`; and `error` combines processing and deployment errors into one string. A successful change requires manual review only when it has a `review` object; there is no separate boolean flag. A review URL may be `null`. The change's `url` describes the deployment outcome and may differ from the review URL.
 
 The review summary follows deterministic plan order. Every applicable change retains its own `review` object, while `content_to_review` retains only the first entry with the same resource type, name, and URL.
 
@@ -179,7 +183,7 @@ if report.has_errors:
     raise RuntimeError("MDXCanvas did not complete")
 ```
 
-The returned report uses the JSON structure shown above. Treat `expected_changes`, `changes_made`, `content_to_review`, and `errors` as public report data; they contain resource identifiers, transition/outcome information, and URLs where available. Execution errors include `status` (`failed` or `blocked`) and `action` when associated with a planned action; their resource and source fields provide context for the redacted error message. Course-URL fallback and link grouping affect only human output and are not written into `changes_made`. Use the JSON report—not live log order or the grouped human presentation—as the authoritative integration result.
+The returned report uses the JSON structure shown above. Treat `deployment.expected_changes`, `deployment.changes_made`, `deployment.errors`, and the top-level 0.7.x compatibility fields as public report data; they contain resource identifiers, transition/outcome information, and URLs where available. Execution errors include `status` (`failed` or `blocked`) and `action` when associated with a planned action; their resource and source fields provide context for the redacted error message. Course-URL fallback and link grouping affect only human output and are not written into `changes_made`. Use the JSON report—not live log order or the grouped human presentation—as the authoritative integration result.
 
 ## Erasing Course Content
 
