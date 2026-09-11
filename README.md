@@ -103,9 +103,17 @@ The `mdxcanvas` command supports the following options:
 - `--templates <files>` - List of template files to import
 - `--css <file>` - Path to CSS file for styling
 - `--debug` - Enable debug logging
-- `--dryrun` or `--dry-run` - Preview changes without deploying to Canvas
-- `--cleanup` - Remove Canvas resources not present in the input file
-- `--output-file <file>` - Save deployment report to specified file
+- `--dryrun` or `--dry-run` - Build and report the deployment plan without mutating Canvas or the ledger
+- `--no-cleanup` - Keep tracked resources omitted from this invocation (recommended for targeted deployments)
+- `--output-file <file>` - Save the nested JSON deployment report to the specified file
+
+Source is authoritative by default: omitted tracked resources are stale. Most are deleted from Canvas; course settings, navigation, quiz-question order, and syllabus are untracked without changing Canvas. `--no-cleanup` suppresses all stale handling. Reports separate processing failures from planned and completed deployment changes. Either kind of failure produces a nonzero exit status.
+
+Both dry-run and deployment immediately log a grouped planned-action summary by resource type, separated into create, update, delete, and untrack. The total counts planned action nodes, so supported shell/full cycle actions are counted separately. Live deployment then logs concise completion progress such as `1338/1344: create quiz_question_order lab0a|order`; completion order may differ from report order. It ends with elapsed successful, failed, and blocked counts. Dry-run emits no action-completion or deployment-completion records. The JSON report remains deterministically ordered.
+
+After deployment, the human report groups successful actions that share a Canvas URL, including authenticated file links. Resources without a dedicated URL are grouped under the course URL. Attempted failures include action, resource, source, and redacted error context. Blocked resources are omitted individually and summarized once as `X resources not deployed`; inspect the JSON report for their individual records. During dry-run, the human report lists expected changes instead.
+
+Ledger loading is read-only. A missing ledger starts in memory, and supported older ledgers are migrated as needed. If the recorded ledger version is newer than the running package, both dry-run and deployment stop before interpreting it. Upgrade MDXCanvas to at least the recorded version before retrying. If deployment is interrupted with Ctrl-C, MDXCanvas waits for active deployment calls to finish, makes one best-effort save of completed ledger state, and then propagates the interrupt. Because saving is best-effort, inspect Canvas, the report, and the ledger before rerunning an interrupted deployment.
 
 Example with options:
 
@@ -114,8 +122,68 @@ mdxcanvas --course-info course.yaml \
           --global-args globals.yaml \
           --css styles.css \
           --dryrun \
+          --no-cleanup \
           content.xml
 ```
+
+The JSON report has this shape:
+
+```json
+{
+  "processing": {"error": ""},
+  "deployment": {
+    "mode": "deploy",
+    "cleanup": "enabled",
+    "expected_changes": [
+      {"change": "modified", "resource_type": "quiz", "resource_id": "chapter-check"}
+    ],
+    "changes_made": [
+      {
+        "change": "modified",
+        "resource_type": "quiz",
+        "resource_id": "chapter-check",
+        "outcome": "updated",
+        "url": "https://canvas.example/courses/1/quizzes/2",
+        "review": {"name": "Chapter check", "url": null}
+      }
+    ],
+    "errors": []
+  },
+  "deployed_content": [
+    ["quiz", "chapter-check", "https://canvas.example/courses/1/quizzes/2"]
+  ],
+  "content_to_review": [
+    ["quiz", "Chapter check", null]
+  ],
+  "error": ""
+}
+```
+
+The top-level `deployed_content`, `content_to_review`, and `error` fields retain the 0.7.x report contract for integrations. They are always present. `deployed_content` contains created and updated resources as `[resource_type, resource_id, url]`; `content_to_review` contains `[resource_type, name, url]`; and `error` combines processing and deployment errors into one string. A successful change requires manual review only when it has a `review` object; there is no separate boolean flag. A review URL may be `null`. The change's `url` describes the deployment outcome and may differ from the review URL.
+
+The review summary follows deterministic plan order. Every applicable change retains its own `review` object, while `content_to_review` retains only the first entry with the same resource type, name, and URL.
+
+## Python API
+
+Applications that call `mdxcanvas.main.main` can use the same options as the CLI. The cleanup argument is `no_cleanup` and defaults to `False`; the former `cleanup` argument is not supported.
+
+```python
+from pathlib import Path
+from mdxcanvas.main import main
+
+report = main(
+    canvas_api_token=token,
+    course_info_file=Path("course.yaml"),
+    input_file=Path("content.xml"),
+    dryrun=True,
+    no_cleanup=True,
+)
+if report.has_errors:
+    # Inspect report.report before deciding how to handle the failure.
+    raise RuntimeError("MDXCanvas did not complete")
+```
+
+The returned report uses the JSON structure shown above. Treat `deployment.expected_changes`, `deployment.changes_made`, `deployment.errors`, and the top-level 0.7.x compatibility fields as public report data; they contain resource identifiers, transition/outcome information, and URLs where available. Execution errors include `status` (`failed` or `blocked`) and `action` when associated with a planned action; their resource and source fields provide context for the redacted error message. Course-URL fallback and link grouping affect only human output and are not written into `changes_made`. Use the JSON report—not live log order or the grouped human presentation—as the authoritative integration result.
 
 ## Erasing Course Content
 

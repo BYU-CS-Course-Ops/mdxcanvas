@@ -22,11 +22,11 @@ The Deployment Engineer may make a narrow source/configuration repair when diagn
 ## Absolute safety rules
 
 1. **Never deploy to a live/active student course without explicit authorization for that exact verified target and impact.** Research and rehearsal belong in a dedicated disposable scratch course.
-2. **Do not use `--dry-run`.** In the installed package version covered by this role it is experimental and broken: it prints a no-deploy message but still deploys resources, runs stale removal, may run migrations, and uploads `_md5sums.json`. It is not a safety check.
-3. A normal deployment is destructive: it removes tracked stale **quiz questions and module items** even without `--cleanup`.
-4. `--cleanup` means full tracked stale cleanup, not “turn cleanup on.” Obtain separate explicit confirmation immediately before using it.
+2. Use `--dryrun` or `--dry-run` to review the deployment plan safely. It performs no resource-specific Canvas lookup, mutation, deletion, or ledger save.
+3. A normal deployment is destructive: source is authoritative, so every omitted tracked resource is either deleted from Canvas or untracked according to its resource policy.
+4. For a targeted deployment, use `--no-cleanup` to suppress all stale handling. `--cleanup` has been removed.
 5. Never run `erasecanvas` on an agent's initiative. Verify the course again, explain the scope, require a strong typed confirmation containing the course ID, and do not pass `-y`/bypass the interactive prompt.
-6. Never print, log, commit, transmit, or place `CANVAS_API_TOKEN` on a command line. Do not expose signed/private file URLs from Canvas either.
+6. Never print, log, commit, transmit, or place `CANVAS_API_TOKEN` on a command line. Reports may contain ordinary authenticated Canvas destination/download links; do not expose signed URLs, credential-bearing URLs, or private links outside their authorized audience.
 7. Use GET/list operations for diagnosis. Calls such as `create_*`, `.edit()`, `.update()`, `.delete()`, uploads, and POST/PUT requests are mutations and require authorization.
 8. If identity, ownership, scope, stale impact, or target status is uncertain, stop. Ask the user **one question at a time**.
 9. On a failure, stop. Do not immediately rerun a live deployment until partial mutations, deletions, migrations, and ledger state have been assessed.
@@ -37,14 +37,14 @@ Treat the behavior of the **installed `mdxcanvas` Python distribution** as autho
 
 | Topic | Current implementation behavior | Operational rule |
 |---|---|---|
-| Dry run | `dryrun` reaches only deployment logging; deployment and cleanup continue. The checksum context also uploads its file on exit. | Do not use `--dry-run`. Rehearse only with an ordinary deploy to a verified disposable course. |
-| Normal cleanup | A normal deploy removes tracked stale `quiz_question` and `module_item` resources. | Review the complete rendered graph and expected stale set before every deploy. |
-| `--cleanup` | Expands stale removal to every tracked eligible type. | Treat as a separate destructive operation requiring separate confirmation. |
+| Dry run | `--dryrun` and `--dry-run` build the same plan as deployment but do not invoke resource mutation handlers, make resource-specific Canvas lookups, or save the ledger. Both modes log a grouped create/update/delete/untrack plan summary. | Use it to review the target, expected changes, and stale impact before authorization. |
+| Cleanup | A normal deployment handles all tracked resources omitted from the rendered graph. `--no-cleanup` suppresses all stale classification and handling. | Use `--no-cleanup` for a targeted graph unless it intentionally represents the complete tracked course graph. |
+| Stale outcomes | Most stale resources are deleted; course settings, navigation, quiz-question order, and syllabus are untracked without changing Canvas. | Review the exact stale list and distinguish deletion from untracking before deployment. |
 | Course info | YAML, JSON, and MarkdownData are accepted. Current code requires `CANVAS_API_URL`, `CANVAS_COURSE_ID`, `LOCAL_TIME_ZONE`, and `DEPLOY_ROOT`. | Validate keys; do not assume an older checked-in config still works. |
 | Credentials | The token is read only from `CANVAS_API_TOKEN`; course-info files are not token stores. | Keep the token runtime-only. Course-info files must contain only non-secret configuration and must be checked into version control. Review target IDs/settings carefully before use. |
-| Validation | The normal CLI connects to Canvas **before** rendering/parsing. There is no safe validation-only CLI flag. | Use the local, no-Canvas validation procedure below. |
-| Failures | `mdxcanvas.main` catches errors and writes/prints a report rather than re-raising them. | Do not trust process exit status alone; inspect report `error`, stderr, and Canvas state. |
-| Ledger | `_md5sums.json` is downloaded from and uploaded to Canvas; version migrations can query Canvas and delete stale quiz questions. | Ledger inspection is read-only only when done separately; invoking deployment logic is mutating. |
+| Validation | The CLI connects to Canvas before rendering/parsing. Dry-run performs no deployment mutation but still needs the configured target and ledger. | Use local project validation for no-Canvas checks; use dry-run for a safe plan against the target ledger. |
+| Failures | Processing and deployment failures are reported separately with bounded, redacted diagnostics, and either produces a nonzero CLI exit. Live action completions are logged as they resolve: success and blocked are INFO, attempted failure is ERROR; a final elapsed/count summary ends an uninterrupted deployment. The human report gives attempted failures action/resource/source context, omits individual blocked lines, and prints one `X resources not deployed` summary. | Inspect the individual JSON errors and Canvas state after any failure. Concurrent completion logs may differ from deterministic report order. Silence after the plan summary—not plan-order gaps—may indicate a long-running call. |
+| Ledger | Loading and planning are read-only. A missing ledger starts in memory at the running version; supported older ledgers migrate, while a newer recorded version stops planning before its resource schema is interpreted. Migration or completed actions are saved once after execution settles. | Inspect the ledger read-only. If it is newer, do not retry, downgrade, edit, or overwrite it; obtain authorization to upgrade MDXCanvas to at least the recorded version. A save failure can leave Canvas changes without final ledger state. |
 | Course navigation | A changed `<navigation>` checksum reconciles listed tabs and hides unlisted manageable tabs. An unchanged checksum performs no tab inspection. | Review the authoritative list and current Canvas/LTI policy; a failure can leave earlier tab updates applied without advancing the checksum. |
 
 Course-info files must contain only non-secret target configuration and must always be checked into version control. Never put credentials, tokens, signed URLs, or other secrets in them. Keep `CANVAS_API_TOKEN` and `.env` files uncommitted.
@@ -61,11 +61,13 @@ mdxcanvas \
   [--templates /path/one /path/two] \
   [--css /reviewed/path/style.css] \
   [--debug] \
+  [--dryrun | --dry-run] \
+  [--no-cleanup] \
   [--output-file /safe/path/deployment-report.json] \
   /reviewed/path/course.canvas.md.xml.jinja
 ```
 
-Do not add `--dry-run`. Do not add `--cleanup` to a normal deployment.
+Dry-run is strictly read-only with respect to resource deployment and the ledger. Cleanup is enabled by default; use `--no-cleanup` for a targeted deployment. `--cleanup` is not supported.
 
 ### Course-info fields
 
@@ -109,15 +111,14 @@ Filesystem presence does not imply deployment. Conversely, a glob or existence c
 
 A narrower source file may be used intentionally while diagnosing an issue or iterating on specific content. Confirm that the requested action is a **targeted deployment**, identify exactly which resources it renders, and do not describe it as a full-course deployment.
 
-A targeted entry point does **not** create a separate checksum or cleanup scope. It still uses the course-wide Canvas `_md5sums.json` ledger, and the current normal deployment still treats tracked quiz questions and module items omitted from the targeted graph as stale. It may therefore delete unrelated course content. Before a targeted deployment:
+A targeted entry point does **not** create a separate ledger scope. With default cleanup, every omitted tracked resource is stale and may be deleted or untracked. Before a targeted deployment:
 
-- locally render the targeted graph and compare it with the course-wide ledger;
-- list every quiz question and module item that normal stale cleanup would remove;
+- run `--dry-run --no-cleanup` to review only the targeted graph's creates and updates;
+- use cleanup only after reviewing the complete rendered graph and exact stale list;
 - prefer a dedicated disposable scratch course for iteration;
-- obtain explicit target-and-impact confirmation for a shared test or live course;
-- use the full-course entry point instead when the targeted graph's cleanup impact is uncertain or unintended.
+- obtain explicit target-and-impact confirmation for a shared test or live course.
 
-Never use `--dry-run` to assess a targeted deployment.
+Do not use default cleanup for a targeted graph unless it intentionally replaces the complete tracked graph.
 
 ### Select and verify the Python environment
 
@@ -165,7 +166,7 @@ Before any Canvas connection:
 - verify writable space for generated temporary files and the report;
 - record the course-source revision used.
 
-A first deployment with a different MDXCanvas version may run ledger migrations. In the installed version documented here, older-ledger migration can enumerate resources and delete Canvas quiz questions not represented in the old ledger. Treat a version change as an impact requiring explicit review.
+A first deployment with a different MDXCanvas version may require a ledger migration. In the 0.8 family, older canonical 0.8.x ledgers advance their envelope version without resource rewriting, and supported 0.7.x migrations update ledger metadata only. Unsupported or malformed history stops planning before resource mutation. A newer recorded version stops planning before its resource schema is interpreted and requires an authorized upgrade to at least that version. Treat any version difference as an impact requiring explicit review.
 
 ## Secret handling
 
@@ -214,7 +215,7 @@ For every candidate pairing, record:
 Classify conservatively:
 
 - **Dedicated disposable scratch:** ownership and permission to replace/delete its content have been verified.
-- **Shared test:** any other repository, instructor, automation, or exercise may use it. Treat normal stale cleanup as collateral risk.
+- **Shared test:** any other repository, instructor, automation, or exercise may use it. Treat default stale handling as collateral risk.
 - **Live/active:** students may access it now or its content may be authoritative for a term. Treat as live unless positively proven otherwise.
 
 Observed course repositories demonstrate two recurring hazards: unrelated configurations can point to the same “testing” course, and old term configs can omit fields required by the current CLI. Never select from a filename alone.
@@ -275,97 +276,16 @@ During diagnosis, do **not** call `.edit()`, `.update()`, `.delete()`, `create_*
 
 ## Local render and pre-deployment validation
 
-Because the normal CLI connects before parsing and `--dry-run` mutates Canvas, validate locally through the installed package's processing API. Run the selected `python` interpreter from the same environment as the `mdxcanvas` command, using the project's environment-manager prefix when applicable. This performs no Canvas calls and does not require a source checkout:
+Use the project’s normal local validation and test workflow before contacting Canvas. Then run `--dryrun` with the same course-info, entry point, arguments, templates, and CSS intended for deployment. Dry-run is safe for deployment and ledger state, but it still connects to the configured course and reads its ledger.
 
-```bash
-python - <<'PY'
-import copy
-import json
-from pathlib import Path
+Review the rendered graph semantically:
 
-from mdxcanvas.deploy.canvas_deploy import fix_dates, get_dependencies
-from mdxcanvas.deploy.checksums import compute_md5
-from mdxcanvas.main import load_config, process_file, read_content
-from mdxcanvas.processing_context import FileContext
-from mdxcanvas.resources import ResourceManager, iter_keys
-from mdxcanvas.xml_processing.xml_processing import process_canvas_xml
-
-course_info_path = Path('/reviewed/path/course-info.yaml').resolve()
-entry_path = Path('/reviewed/path/course.canvas.md.xml.jinja').resolve()
-global_args_path = Path('/reviewed/path/global-args.yaml').resolve()  # adjust or set to None
-args_path = None
-templates = []
-css_path = None
-
-info = load_config(course_info_path)
-required = {'CANVAS_API_URL', 'CANVAS_COURSE_ID', 'LOCAL_TIME_ZONE', 'DEPLOY_ROOT'}
-missing_keys = sorted(required - info.keys())
-if missing_keys:
-    raise ValueError(f'Missing course-info keys: {missing_keys}')
-
-deploy_root = (course_info_path.parent / info['DEPLOY_ROOT']).resolve()
-if not deploy_root.is_dir():
-    raise ValueError(f'Invalid DEPLOY_ROOT: {deploy_root}')
-
-global_args = dict(info.get('GLOBAL_ARGS', {}))
-if global_args_path:
-    global_args |= load_config(global_args_path)
-
-resources = ResourceManager()
-suffixes, content = read_content(entry_path)
-with FileContext(entry_path):
-    rendered = process_file(
-        resources, deploy_root, entry_path.parent, content, suffixes,
-        global_args, args_path, templates, css_path,
-    )
-    resources = process_canvas_xml(resources, rendered)
-
-# Check references before get_dependencies adds reference-only placeholders.
-missing_refs = set()
-for key, resource in resources.items():
-    for _, rtype, rid, field in iter_keys(json.dumps(resource.get('data', {}))):
-        if (rtype, rid) not in resources:
-            missing_refs.add((key, rtype, rid, field))
-if missing_refs:
-    raise ValueError(f'Unresolved resource references: {sorted(missing_refs)}')
-
-# Validate dependency graph, dates, and all checksum paths.
-get_dependencies(resources)
-for resource in resources.values():
-    data = resource.get('data')
-    if data is None:
-        continue
-    checked = copy.deepcopy(data)
-    fix_dates(checked, info['LOCAL_TIME_ZONE'], resource)
-    compute_md5(data, deploy_root)
-
-counts = {}
-for rtype, _ in resources:
-    counts[rtype] = counts.get(rtype, 0) + 1
-print('Target configuration:', {
-    'api_url': info['CANVAS_API_URL'],
-    'course_id': info['CANVAS_COURSE_ID'],
-    'timezone': info['LOCAL_TIME_ZONE'],
-    'deploy_root': str(deploy_root),
-})
-print('Resource counts:', dict(sorted(counts.items())))
-print('Local render and validation passed; Canvas was not contacted.')
-PY
-```
-
-Customize the paths rather than running the sample literally. The imports used here are internal processing APIs of the installed package and may change between versions. If an import fails, stop and obtain a validation procedure for that installed version; never substitute `--dry-run`. This is validation, not a perfect deployment simulation: it does not retrieve the Canvas ledger, run migrations, resolve live Canvas IDs, render/upload Quarto or Mermaid outputs, or predict Canvas API validation errors.
-
-Also review the resource graph semantically:
-
-- resource IDs are unique and stable; duplicate source production has not overwritten a key in `ResourceManager`;
-- every module item and course link resolves to the intended resource;
-- assignment groups exist and overrides target the right assignment/quiz and section;
-- dates are correct after applying all conditions and args in the configured time zone;
-- include/glob/condition changes did not unexpectedly omit resources;
-- local assets exist and generated packages contain no answer keys, solutions, secrets, or unintended files;
+- resource IDs are unique and stable, and every module item and course link resolves to the intended resource;
+- dates are correct after arguments and conditions in the configured time zone;
+- include/glob/condition changes have not unexpectedly omitted resources;
+- local assets and generated packages contain no answer keys, solutions, secrets, or unintended files;
 - Quarto/Mermaid generation succeeds locally;
-- course settings and syllabus changes are intentional;
-- publication, lock/unlock, due dates, module order, and sensitive exams/keys are appropriate for the target.
+- course settings, syllabus, publication, dates, module order, and sensitive exams/keys are intentional.
 
 ## Ledger, identity, and impact analysis
 
@@ -377,40 +297,32 @@ MDXCanvas stores `_md5sums.json` in Canvas. It maps `(resource type, source ID)`
 
 Consequences:
 
-- A missing checksum means “new.”
-- A changed checksum means update.
+- A missing checksum with a tracked Canvas identity means “modified”; a defined resource without an identity is “new.”
+- A changed checksum means “modified” (some uploaded resources receive a new Canvas identity).
 - A changed file/zip dependency can force dependents to update.
 - The tracked Canvas ID determines update versus create; filenames/titles do not.
 - Uploaded files are uploaded again rather than edited in place.
 - Reusing one Canvas course across repositories reuses one ledger and deletion namespace.
 - Manual deletion or copied courses can leave ledger IDs that no longer exist.
 - Changing a stable source ID usually appears as one new resource plus one stale old resource; it is not a rename.
-- Course navigation is one fixed-identity resource. Manual navigation drift persists while its checksum is unchanged, and cleanup retains its checksum even when the source block is absent.
+- A ledger-only resource explicitly referenced by rendered content is retained rather than stale; it must have the stored identity and requested reference field.
 
-Download and inspect the ledger only through read-only calls. Do not invoke `MD5Sums` merely to inspect it because entering/exiting that context uploads the ledger. Locate `_md5sums.json` among `course.get_files()`, fetch its private URL without logging it, parse it in memory, and compare its `resources` keys and Canvas IDs with the local graph and observed Canvas objects. Protect the downloaded file as operational data.
+Loading the ledger is read-only. Missing ledgers start at the running MDXCanvas version in memory. Nested 0.7.x ledgers migrate canonical parent metadata; older canonical 0.8.x ledgers validate and advance only their copied envelope version; exact-running 0.8.x ledgers validate directly. Older, unversioned, malformed, and unsupported historical ledgers fail planning before mutation. Any ledger version newer than the running package stops both dry-run and deployment before resource-schema validation, planning, mutation, or save. Do not retry, downgrade, manually edit, or overwrite that ledger. Obtain authorization, then upgrade MDXCanvas to at least the recorded version.
 
-Before mutation, classify every ledger entry as:
-
-- unchanged;
-- new;
-- changed directly;
-- changed because of a file/zip dependency;
-- stale under normal cleanup (`quiz_question`, `module_item`);
-- stale only under full `--cleanup`;
-- unresolved/stale-ledger identity.
+Before mutation, classify every ledger entry as unchanged, new, modified, stale, or an invalid identity/reference that blocks planning. With cleanup enabled, stale ordinary resources are deleted. Course settings, navigation, quiz-question order, and syllabus are untracked instead: Canvas state remains while MDXCanvas stops managing them. `--no-cleanup` suppresses both kinds of stale handling.
 
 Do not delete based on filenames or titles. Review resource keys, tracked Canvas IDs, live objects, parents, and ownership.
 
 ## Dependency ordering and shell deployment
 
-Resource references become dependency edges. MDXCanvas topologically deploys dependencies first and may run independent tasks concurrently. Cycles involving assignments, pages, or quizzes are broken by creating/updating temporary “shell” resources, then deploying full content. Assignment groups needed by shell assignments are deployed first.
+Resource references establish deployment order, and independent work may run concurrently. Supported cycles of new assignments, pages, quizzes, or syllabi are created as content-free shells before full content is applied. A syllabus shell temporarily applies empty syllabus content before the full referenced content. A failed prerequisite blocks its dependents, while unrelated work is allowed to finish.
 
 Operational implications:
 
 - a failure can leave shells or a partially updated graph;
 - parallel tasks can produce several successful mutations before one error surfaces;
-- cyclic resources may appear twice in logs/reporting;
-- linked Canvas IDs must be available either from this deployment or the ledger;
+- a supported cyclic resource can have a created shell followed by an updated full resource in the report;
+- linked Canvas IDs must be available either from this deployment or a complete ledger entry;
 - an unresolved reference is a stop condition, not permission to create an untracked object manually.
 
 ## Resource-specific mutation notes
@@ -435,7 +347,7 @@ These behaviors are reasons to inspect resource data and Canvas state, not just 
 Immediately before any deployment, present one concise target-and-impact summary:
 
 ```text
-Action: full-course or targeted normal deploy (includes default stale quiz-question/module-item deletion)
+Action: dry-run, full deployment, or targeted deployment with `--no-cleanup`
 API host: https://canvas.example.edu/
 Canvas course: 12345 — <actual name> [<actual code>]
 Class: dedicated scratch | shared test | live/active
@@ -444,8 +356,8 @@ Course info: <absolute path>
 Deploy root: <absolute resolved path>
 Args/CSS/templates: <explicit paths or none>
 Course source/package: <course revision>, installed MDXCanvas <version>
-Expected: <counts of new/changed resources>
-Default stale deletion: <exact quiz-question/module-item keys and Canvas IDs, or none>
+Expected: <counts of new/modified resources>
+Stale handling: <exact stale keys, including whether each is deleted or untracked, or none>
 Migration: <none or exact expected migration>
 High-risk content: <submitted quizzes/exams/keys/course settings/etc.>
 Report: <path>
@@ -458,7 +370,7 @@ For a dedicated disposable scratch target, follow the user's standing authorizat
 1. Freeze or record the reviewed course-source revision, installed MDXCanvas version, and command.
 2. Re-run local validation.
 3. Reconnect read-only and reverify actual host/course ID/name/code.
-4. Re-read the ledger and reassess expected updates, normal stale deletions, migrations, and quiz submissions.
+4. Run dry-run and reassess expected changes, stale delete/untrack outcomes, ledger migration, and quiz submissions.
 5. Present the pre-mutation summary and receive explicit authorization.
 6. Run the exact reviewed command once in the previously verified Python environment, with a report file. Use the project's environment-manager prefix when applicable:
 
@@ -474,7 +386,7 @@ For a dedicated disposable scratch target, follow the user's standing authorizat
 7. Preserve stdout/stderr without secrets. Inspect the JSON report even if the process appears successful.
 8. Perform mandatory read-only post-deploy verification before declaring success.
 
-Do not deploy by composing a command from stale shell history. Do not “test” the live target with `--dry-run`.
+Do not deploy by composing a command from stale shell history. Review the fresh dry-run report before a live deployment.
 
 ## Publication is a separate release action
 
@@ -558,15 +470,15 @@ If any requested item is absent, ambiguous, already published unexpectedly, depl
 
 ## Cleanup levels
 
-### Normal deployment
+### Default cleanup
 
-Normal deployment updates changed resources **and removes stale tracked quiz questions and module items**. This can delete a question omitted by a condition or an item removed by a changed entry point. Question deletion can affect a quiz that already has submissions, and stale cleanup does not apply the submitted-quiz review safeguard used by quiz/question updates. It requires stale-impact and submission review every time.
+A normal deployment handles every stale tracked resource omitted from the rendered graph unless it is retained by an explicit resource reference. Most stale resources are deleted; course settings, navigation, quiz-question order, and syllabus are untracked without a Canvas deletion. Nested children are deleted before their parents.
 
-### Full tracked cleanup (`--cleanup`)
+Review the exact stale list and its delete/untrack outcomes before deployment. Stale quiz questions can affect a quiz with submissions, so continue to treat them as high risk.
 
-`--cleanup` removes all eligible ledger-tracked stale resource types, with module items, quiz questions, and overrides prioritized before broader resources. It does not mean “only clean up,” and it does not necessarily remove untracked Canvas content. Course navigation is always excluded: cleanup neither resets tabs nor removes its retained checksum.
+### Targeted deployment (`--no-cleanup`)
 
-Require a separate target summary, exact stale list, and explicit confirmation. Never append it casually after a deployment. Recheck submitted quizzes, shared files, pages linked externally, and manually maintained content.
+`--no-cleanup` suppresses all stale classification and handling. It does not limit creates or updates. Use it for a deliberately partial graph, and retain the normal target-and-impact confirmation.
 
 ### Whole-course erase (`erasecanvas`)
 
@@ -591,8 +503,8 @@ Inspect the report and Canvas through read-only API calls, then use the Canvas U
 
 Verify at minimum:
 
-- report `error` is empty and every expected resource appears;
-- no unexpected content is listed for manual review;
+- both `processing.error` and `deployment.errors` are empty and expected changes have appropriate outcomes;
+- every `[resource_type, name, url]` item in top-level `content_to_review` has been inspected in Canvas; use each change's `review` object for action-level context, and locate a null-URL target by its resource type and name;
 - ledger version, keys, checksums, Canvas IDs, and target course are coherent;
 - assignments/quizzes have correct publication, points, groups, due/unlock/lock dates, overrides, and links;
 - modules have correct order, item targets, and publication state;
@@ -604,27 +516,29 @@ Verify at minimum:
 
 ### Submitted quizzes
 
-Current quiz deployment checks for submissions. With no submissions it may temporarily unpublish, edit, and republish. With submissions it edits the quiz/question/order anyway and adds the quiz to `content_to_review`; the code indicates the user must manually review/save it in Canvas.
+Quiz deployment can add review metadata when existing submissions make automatic changes risky. Inspect every item in top-level `content_to_review` before declaring the deployment complete. A null review URL still requires review; locate the quiz by its reported name and resource type.
 
 Therefore:
 
 - identify submitted quizzes before deployment;
-- identify stale quiz questions before deployment; their deletion path does not first check for submissions or add the parent quiz to `content_to_review`;
+- identify stale quiz questions before deployment; deletion can affect quiz history and requires instructor review;
 - treat changes to their settings, questions, order, points, and dates as high risk;
-- inspect every report entry under `content_to_review` in the Canvas UI;
+- inspect every top-level `content_to_review` item in the Canvas UI, consulting matching `changes_made[*].review` objects for action-level context;
 - verify student attempt/history implications with the instructor;
 - do not declare the deployment complete until required manual review/save is done.
 
 ## Failure handling
 
-A failure may occur after resource creation/update, stale deletion, migration, or ledger upload. Threaded deployment means partial success is normal failure behavior. Navigation updates themselves are serial, but a later tab failure does not roll back earlier tab changes and does not advance the navigation checksum.
+A failure may occur after some creates, updates, stale actions, or migration. Successful independent actions are retained, and a final ledger-save failure is reported separately from deployment failures. The human report groups successful resources by Canvas link, including authenticated file links, and uses the course link for resources without a dedicated page. It prints attempted failures with context and replaces repeated blocked-action messages with one count; use the individual JSON entries for authoritative action details.
+
+If the user interrupts execution with Ctrl-C, MDXCanvas waits for active deployment calls to finish, attempts one save of completed ledger state, and then propagates `KeyboardInterrupt`. This save is best-effort. Treat the resulting state as a partial deployment and inspect Canvas, the ledger, and the JSON report before rerunning.
 
 1. Stop; do not auto-rerun.
 2. Preserve the command, course-source revision, installed MDXCanvas version, timestamps, report, and sanitized logs.
-3. Read report `deployed_content`, `content_to_review`, and `error`; do not rely on exit status.
-4. Reconnect read-only and inventory the affected resource IDs and parents.
-5. Re-download the ledger and compare it with both the pre-deploy snapshot and live Canvas.
-6. Determine whether migrations or stale deletions ran and whether shells remain.
+3. Read `processing.error`, `deployment.errors`, and `changes_made`; the CLI exits nonzero for either error section.
+4. Reconnect read-only and inventory affected Canvas resources and parents.
+5. Re-download the ledger and compare it with the pre-deployment state and live Canvas.
+6. Determine which actions completed, which were blocked by failures, and whether ledger persistence failed.
 7. Handle `ResourceDoesNotExist` as evidence to investigate, not as an automatic retry signal.
 8. Propose a bounded repair/rollback and obtain new authorization before further mutation.
 
@@ -674,7 +588,7 @@ Provide a concise record containing:
 - API host, course ID, actual name/code, and classification;
 - entry point, course-info, args/templates/CSS, resolved deploy root;
 - course-source revision and installed MDXCanvas version;
-- exact action: normal deploy, targeted deploy, item publication, full cleanup, repair, or erase;
+- exact action: deploy with default cleanup, targeted `--no-cleanup` deploy, item publication, repair, or erase;
 - expected and actual deployed/removed resource counts and identities;
 - migration status and ledger version;
 - report path and sanitized log location;
@@ -697,9 +611,9 @@ Stop and ask one question at a time when:
 - token provenance or secret handling is unclear;
 - local render, dependencies, paths, dates, or generated artifacts fail validation;
 - the expected stale list is unavailable or surprising;
-- a version migration may mutate an older course;
+- the ledger needs migration, is malformed, or its compatibility is uncertain;
 - submitted quizzes, exams, keys, solutions, or course-wide settings are affected;
-- full cleanup, erase, or any manual destructive repair is proposed;
+- default cleanup, erase, or any manual destructive repair is proposed;
 - a prior deployment partially failed or the ledger is inconsistent.
 
-**Measure twice, cut once:** verify the target immediately before every mutating command, and never use experimental `--dry-run` as evidence of safety.
+**Measure twice, cut once:** verify the target immediately before every mutating command, and use a fresh dry-run report to assess its impact.

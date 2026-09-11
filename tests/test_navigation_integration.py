@@ -9,32 +9,17 @@ class FakeMD5Sums:
     current = None
 
     def __init__(self, *_args):
-        self.data = dict(type(self).current or {})
+        self.data = {
+            "mdxcanvas_version": "0.8.0",
+            "resources": dict(type(self).current or {}),
+        }
         type(self).last = self
 
-    def __enter__(self):
-        return self
+    def load(self):
+        return self.data
 
-    def __exit__(self, *_args):
-        return False
-
-    def items(self):
-        return self.data.items()
-
-    def get(self, item, default=None):
-        return self.data.get(item, default)
-
-    def get_checksum(self, item):
-        return self.get(item, {}).get("checksum")
-
-    def get_canvas_info(self, item):
-        return self.get(item, {}).get("canvas_info")
-
-    def has_canvas_info(self, item):
-        return self.get_canvas_info(item) is not None
-
-    def __setitem__(self, item, value):
-        self.data[item] = value
+    def save(self, envelope):
+        self.data = envelope
 
 
 class FakeTab:
@@ -78,9 +63,8 @@ def navigation_resource(names):
 
 
 def configure_ledger(monkeypatch, entries):
-    FakeMD5Sums.current = entries
+    FakeMD5Sums.current = {"|".join(key): value for key, value in entries.items()}
     monkeypatch.setattr("mdxcanvas.deploy.canvas_deploy.MD5Sums", FakeMD5Sums)
-    monkeypatch.setattr("mdxcanvas.deploy.canvas_deploy.migrate", lambda *_args: None)
 
 
 def test_unchanged_navigation_checksum_performs_no_canvas_tab_api_work(monkeypatch, tmp_path):
@@ -118,6 +102,12 @@ def test_changed_navigation_records_one_checksum_and_one_url_less_report_entry(m
     deploy_to_canvas(course, "America/Denver", resources, report, tmp_path)
 
     assert course.get_tabs_calls == 1
-    assert list(FakeMD5Sums.last.data) == [("navigation", "navigation")]
-    assert FakeMD5Sums.last.data[("navigation", "navigation")]["canvas_info"] == {"id": "9"}
-    assert report.get_deployed_content() == [("navigation", "navigation", None)]
+    assert list(FakeMD5Sums.last.data["resources"]) == ["navigation|navigation"]
+    assert FakeMD5Sums.last.data["resources"]["navigation|navigation"]["canvas_info"] == {"id": "9"}
+    assert report.report["deployment"]["changes_made"] == [{
+        "change": "new",
+        "resource_type": "navigation",
+        "resource_id": "navigation",
+        "outcome": "created",
+    }]
+    assert report.report["content_to_review"] == []

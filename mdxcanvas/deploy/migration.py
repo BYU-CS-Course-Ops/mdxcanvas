@@ -1,146 +1,109 @@
-from collections import defaultdict
+from copy import deepcopy
+from collections.abc import Mapping
 
-from canvasapi.quiz import Quiz
+import mdxcanvas
 
-from .checksums import MD5Sums
-from .. import __version__
-from ..our_logging import get_logger
-
-logger = get_logger()
-
-
-def _parse_version(v):
-    return tuple(int(x) for x in v.split('.'))
-
-
-def _migrate_titles(course, md5s: MD5Sums):
-    for key, data in md5s.items():
-        rtype, rid = key
-
-        if rtype in ['assignment', 'file', 'module', 'page', 'quiz'] \
-                and not data['canvas_info'].get('title'):
-            logger.debug(f'Migrating title for {rtype} {rid}')
-
-            canvas_obj = getattr(course, f'get_{rtype}')(data['canvas_info']['id'])
-            title = (
-                canvas_obj.title if hasattr(canvas_obj, 'title') else
-                canvas_obj.name if hasattr(canvas_obj, 'name') else
-                canvas_obj.display_name
-            )
-            md5s[rtype, rid]['canvas_info']['title'] = title
-
-        elif rtype == 'syllabus' and not data.get('title'):
-            logger.debug(f'Migrating title for {rtype} {rid}')
-            md5s[rtype, rid]['canvas_info']['title'] = 'Syllabus'
+CANONICAL_LEDGER_FAMILY = (0, 8)
+KNOWN_TYPES = {
+    "announcement", "assignment", "assignment_group", "course_settings", "file", "mermaid",
+    "module", "module_item", "navigation", "override", "page", "quarto-slides", "quiz",
+    "quiz_question", "quiz_question_order", "syllabus", "zip",
+}
+PARENTS = {
+    "module_item": ("module_id", "module"),
+    "quiz_question": ("quiz_id", "quiz"),
+    "override": ("assignment_id", "assignment"),
+}
 
 
-def _migrate_module_and_override_ids(course, md5s: MD5Sums):
-    # Module Item -> Module ID map
-    item_id_map = {
-        module_item.id: module_item.module_id
-        for module in course.get_modules()
-        for module_item in module.get_module_items()
-    }
-
-    # Override -> Assignment ID map
-    assignment_id_map = {
-        override.id: override.assignment_id
-        for assignment in course.get_assignments()
-        for override in assignment.get_overrides()
-    }
-
-    for key, data in md5s.items():
-        rtype, rid = key
-
-        # Module Item -> Module ID
-        if rtype == 'module_item' and not data['canvas_info'].get('module_id'):
-            logger.debug(f'Migrating module_id for {rtype} {rid}')
-
-            module_item_id = data['canvas_info'].get('id')
-            if module_item_id in item_id_map:
-                md5s[rtype, rid]['canvas_info']['module_id'] = item_id_map[module_item_id]
-
-        # Override -> Assignment ID
-        elif rtype == 'override' and not data['canvas_info'].get('assignment_id'):
-            logger.debug(f'Migrating assignment_id for {rtype} {rid}')
-
-            override_id = data['canvas_info'].get('id')
-            if override_id in assignment_id_map:
-                md5s[rtype, rid]['canvas_info']['assignment_id'] = assignment_id_map[override_id]
+class LedgerError(ValueError):
+    pass
 
 
-def _migrate_prune_stale_questions(course, md5s: MD5Sums):
-    # Map each tracked quiz to its live questions on Canvas
-    tracked_quizzes = {
-        (quiz_id := data['canvas_info']['id']): [q.id for q in course.get_quiz(quiz_id).get_questions()]
-        for key, data in md5s.items()
-        if key[0] == 'quiz' and 'id' in data.get('canvas_info', {})
-    }
+def _version(value) -> tuple[int, int, int]:
+    if not isinstance(value, str):
+        raise LedgerError("Ledger has no valid mdxcanvas_version")
+    parts = value.split(".")
+    if len(parts) != 3 or any(not part.isdigit() for part in parts):
+        raise LedgerError(f"Malformed ledger version: {value!r}")
+    return tuple(map(int, parts))  # type: ignore[return-value]
 
-    # Collect question IDs that should be kept (present in md5s)
-    questions_to_keep = defaultdict(set)
-    for (rtype, _), data in md5s.items():
-        if rtype == 'quiz_question':
-            quiz_id = data['canvas_info'].get('quiz_id')
-            question_id = data['canvas_info'].get('id')
-            if quiz_id in tracked_quizzes and question_id in tracked_quizzes[quiz_id]:
-                questions_to_keep[quiz_id].add(question_id)
 
-    # Delete questions on Canvas that are no longer in md5s
-    for quiz_id, question_ids in tracked_quizzes.items():
-        stale_ids = [q_id for q_id in question_ids if q_id not in questions_to_keep[quiz_id]]
-        if not stale_ids:
+def _validate(envelope: Mapping):
+    resources = envelope.get("resources")
+    if not isinstance(resources, Mapping):
+        raise LedgerError("Ledger resources must be a mapping")
+    for raw_key, entry in resources.items():
+        if not isinstance(raw_key, str) or "|" not in raw_key:
+            raise LedgerError(f"Malformed ledger resource key: {raw_key!r}")
+        resource_type, resource_id = raw_key.split("|", 1)
+        if resource_type not in KNOWN_TYPES:
+            raise LedgerError(f"Unsupported ledger resource type: {resource_type!r}")
+        if not resource_id and resource_type != "course_settings":
+            raise LedgerError(f"Empty ledger resource id for {resource_type}")
+        if not isinstance(entry, Mapping):
+            raise LedgerError(f"Ledger entry {raw_key!r} must be a mapping")
+        checksum = entry.get("checksum")
+        if checksum is not None and not isinstance(checksum, str):
+            raise LedgerError(f"Ledger checksum for {raw_key!r} must be a string")
+        canvas_info = entry.get("canvas_info")
+        if not isinstance(canvas_info, Mapping):
+            raise LedgerError(f"Ledger canvas_info for {raw_key!r} must be a mapping")
+        canvas_id = canvas_info.get("id")
+        if isinstance(canvas_id, bool) or not isinstance(canvas_id, (str, int, float)) or str(canvas_id) == "":
+            raise LedgerError(f"Ledger canvas_info for {raw_key!r} has no usable id")
+        if resource_type in PARENTS:
+            parent = canvas_info.get("parent")
+            expected = PARENTS[resource_type][1]
+            if not isinstance(parent, Mapping) or parent.get("type") != expected or not isinstance(parent.get("id"), str) or not parent["id"]:
+                raise LedgerError(f"Ledger canvas_info for {raw_key!r} has invalid parent metadata")
+
+
+def migrate_ledger(loaded) -> tuple[dict, bool]:
+    if not isinstance(loaded, Mapping):
+        raise LedgerError("Ledger must be a mapping")
+    version = _version(loaded.get("mdxcanvas_version"))
+    current_version = _version(mdxcanvas.__version__)
+    if version > current_version:
+        recorded_version = loaded.get("mdxcanvas_version")
+        raise LedgerError(
+            f"Ledger version {recorded_version} is newer than running MDXCanvas "
+            f"{mdxcanvas.__version__}; upgrade MDXCanvas to at least {recorded_version}."
+        )
+
+    migrated = deepcopy(dict(loaded))
+    if version[:2] == current_version[:2] == CANONICAL_LEDGER_FAMILY:
+        _validate(migrated)
+        changed = version != current_version
+        if changed:
+            migrated["mdxcanvas_version"] = mdxcanvas.__version__
+        return migrated, changed
+
+    if version[:2] != (0, 7):
+        raise LedgerError(f"Unsupported historical ledger version: {loaded.get('mdxcanvas_version')}")
+
+    resources = migrated.get("resources")
+    if not isinstance(resources, Mapping):
+        raise LedgerError("Ledger resources must be a mapping")
+    for raw_key, entry in resources.items():
+        if not isinstance(raw_key, str) or "|" not in raw_key:
             continue
-        quiz: Quiz = course.get_quiz(quiz_id)
-        for question_id in stale_ids:
-            logger.debug(f'Pruning stale question {question_id} from quiz {quiz_id}')
-            try:
-                quiz.get_question(question_id).delete()
-            except Exception:
-                logger.debug(f'Failed to delete question {question_id} from quiz {quiz_id}')
-
-
-def migrate(course, md5s: MD5Sums):
-    """Update the md5 data to match the latest schema"""
-    logger.debug('Checking MDXCanvas version')
-
-    current_version = __version__
-    stored_version = md5s.get_mdxcanvas_version()
-
-    if stored_version == current_version:
-        logger.debug('MDXCanvas version is up to date, no migration needed')
-        return
-
-    if stored_version is None:
-        logger.info('No MDXCanvas version found — using version 0.0.0')
-        stored_ver = (0, 0, 0)
-
-    elif stored_version > current_version:
-        logger.warning(f'MDXCanvas version {stored_version} is newer than current version {current_version}. '
-                       f'No migrations will be run to avoid potential data loss, but unexpected behavior may occur. '
-                       f'Consider updating MDXCanvas to the latest version.')
-        return
-
-    else:
-        logger.info(f'Migrating from {stored_version} to {current_version}')
-        stored_ver = _parse_version(stored_version)
-
-    logger.info('Migrating cached data')
-
-    # Titles (0.6.2)
-    if stored_ver < (0, 6, 2):
-        logger.info('Adding titles to cached data')
-        _migrate_titles(course, md5s)
-
-    # Module Item → Module ID, Override → Assignment ID (0.6.6)
-    if stored_ver < (0, 6, 6):
-        logger.info('Migrating module and override IDs')
-        _migrate_module_and_override_ids(course, md5s)
-
-    # Prune stale quiz questions (0.6.15)
-    if stored_ver < (0, 6, 15):
-        logger.info('Pruning stale quiz questions')
-        _migrate_prune_stale_questions(course, md5s)
-
-    # Now that migration is finished, set the version we are using
-    md5s.add_mdxcanvas_version(current_version)
+        resource_type = raw_key.split("|", 1)[0]
+        if resource_type not in PARENTS:
+            continue
+        if not isinstance(entry, dict) or not isinstance(entry.get("canvas_info"), dict):
+            continue
+        info = entry["canvas_info"]
+        legacy_field, parent_type = PARENTS[resource_type]
+        if "parent" not in info:
+            if legacy_field not in info or info[legacy_field] in (None, ""):
+                raise LedgerError(f"Missing parent metadata for {raw_key}")
+            info["parent"] = {"type": parent_type, "id": str(info.pop(legacy_field))}
+        else:
+            parent = info["parent"]
+            if isinstance(parent, dict) and parent.get("id") not in (None, ""):
+                parent["id"] = str(parent["id"])
+            info.pop(legacy_field, None)
+    migrated["mdxcanvas_version"] = mdxcanvas.__version__
+    _validate(migrated)
+    return migrated, True

@@ -16,7 +16,8 @@ from ..util import parse_soup_from_xml
 
 # Load CSS from file
 _CSS_FILES = [Path(__file__).parent / 'mdxcanvas.css', Path(__file__).parent / 'github-light.css']
-CODE_BLOCK_CSS = f'<style>\n{"\n".join(file.read_text() for file in _CSS_FILES)}\n</style>'
+_CODE_BLOCK_CSS_CONTENT = "\n".join(file.read_text() for file in _CSS_FILES)
+CODE_BLOCK_CSS = f'<style>\n{_CODE_BLOCK_CSS_CONTENT}\n</style>'
 
 
 def replace_characters(text: str, replacements: dict[str, str]) -> str:

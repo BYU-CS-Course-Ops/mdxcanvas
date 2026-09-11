@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.8.0 - 2026-09-10
+
+While a major version increase (0.7 → 0.8), 0.8 does not introduce any breaking changes in syntax or behavior. It involved a significant re-write of the deployment machinery, so there is some risk of new bugs. Keep this in mind when upgrading from 0.7.x. 
+
+### Added
+
+- Added deterministic deployment planning shared by dry-run and live deployment, with dependency-aware concurrent execution, cycle handling, progress logging, and partial-success reporting.
+- Added nested JSON deployment reports with per-action outcomes, contextual errors, manual-review metadata, and grouped Canvas links in human output.
+- Added versioned ledger validation and migration, including rejection of ledgers created by newer MDXCanvas versions.
+
+### Changed
+
+- Made source authoritative by default: omitted tracked resources are deleted or untracked according to resource policy. Use `--no-cleanup` for targeted deployments; the former `--cleanup` option is removed.
+- Made `--dry-run` read-only for Canvas resources and the deployment ledger while reporting the exact planned actions.
+- Updated deployment and erase behavior to use the unified resource-handler pipeline and deterministic ledger state.
+
+### Fixed
+
+- `--dry-run` now correctly reports expected changes without changing Canvas resources.
+
 ## 0.7.11 - 2026-09-10
 
 ### Fixed

@@ -1,5 +1,7 @@
 import argparse
 import os
+import threading
+from dataclasses import dataclass
 from pathlib import Path
 
 from canvasapi import exceptions
@@ -7,7 +9,24 @@ from canvasapi.exceptions import ResourceDoesNotExist
 
 from ..main import get_course, load_config
 from ..our_logging import get_logger
-from ..parallel import threaded_execute
+from ..deploy.executor import execute_dag, retry_rate_limit
+
+
+@dataclass(frozen=True)
+class _Task:
+    key: str
+    predecessors: frozenset[str]
+    plan_order: int
+    action: object
+
+
+def _run_tasks(tasks):
+    result = execute_dag(tasks, lambda node: retry_rate_limit(node.action, key=node.key))
+    if result.failures:
+        raise next(iter(result.failures.values()))
+    if result.blocked:
+        raise next(iter(result.blocked.values()))
+    return result
 
 
 def get_item_name(item):
@@ -57,11 +76,11 @@ def parallel_delete(items, item_type=None):
         logger.info(f'Deleting {itype}: {name}')
         delete_item(item, itype, name)
 
-    threaded_execute(
-        items=[(i, (item, item_type or get_item_type(item), get_item_name(item)))
-               for i, item in enumerate(items)],
-        execute=execute,
-    )
+    tasks = []
+    for i, item in enumerate(items):
+        data = (item, item_type or get_item_type(item), get_item_name(item))
+        tasks.append(_Task(str(i), frozenset(), i, lambda data=data: execute(data)))
+    _run_tasks(tasks)
 
 
 def delete_all_files(course):
@@ -75,14 +94,15 @@ def delete_all_files(course):
 
     # Collect all files across all folders in parallel
     all_files = []
+    files_lock = threading.Lock()
 
     def collect_files(folder):
-        return list(folder.get_files())
+        files = list(folder.get_files())
+        with files_lock:
+            all_files.extend(files)
 
-    threaded_execute(
-        items=[(i, folder) for i, folder in enumerate(folders)],
-        execute=lambda folder: all_files.extend(collect_files(folder)),
-    )
+    _run_tasks([_Task(str(i), frozenset(), i, lambda folder=folder: collect_files(folder))
+                for i, folder in enumerate(folders)])
 
     # Delete all files in parallel
     if all_files:
@@ -91,10 +111,14 @@ def delete_all_files(course):
 
     # Retry stragglers - Canvas sometimes doesn't return all files on first query
     remaining_files = []
-    threaded_execute(
-        items=[(i, folder) for i, folder in enumerate(folders)],
-        execute=lambda folder: remaining_files.extend(collect_files(folder)),
-    )
+
+    def collect_remaining(folder):
+        files = list(folder.get_files())
+        with files_lock:
+            remaining_files.extend(files)
+
+    _run_tasks([_Task(str(i), frozenset(), i, lambda folder=folder: collect_remaining(folder))
+                for i, folder in enumerate(folders)])
 
     if remaining_files:
         logger.info(f'Deleting {len(remaining_files)} remaining files')
@@ -156,7 +180,7 @@ def main(
         'assignment_groups': ['assignments'],
     }
 
-    tasks = [
+    actions = [
         ('quizzes', delete_quizzes),
         ('assignments', delete_assignments),
         ('assignment_groups', delete_assignment_groups),
@@ -165,12 +189,9 @@ def main(
         ('folders', delete_folders),
         ('announcements', delete_announcements),
     ]
-
-    threaded_execute(
-        items=tasks,
-        execute=lambda fn: fn(),
-        get_dependencies=lambda key: dependencies.get(key, []),
-    )
+    tasks = [_Task(key, frozenset(dependencies.get(key, [])), index, action)
+             for index, (key, action) in enumerate(actions)]
+    _run_tasks(tasks)
 
 
 def entry():

@@ -10,7 +10,7 @@ description: Agentic deploy workflow — locate the course, validate it, run dry
 - Never echo, log, print, or display `CANVAS_API_TOKEN` at any point.
 - Never commit `course_info.json` or `.env` to source control.
 - Never run `erasecanvas` without explicit user confirmation typed by the user.
-- Run dry-run and confirm it is clean before running full deploy.
+- Run dry-run, review its expected changes and stale-resource impact, and confirm it is clean before a full deploy.
 - Ask the user for the `.env` path — never assume or guess its location.
 
 ---
@@ -98,7 +98,7 @@ mdxcanvas --course-info <path/to/course_info.json> \
           --dry-run <path/to/course.canvas.md.xml.jinja>
 ```
 
-Read the dry-run output. Check for:
+Read the dry-run output. The plan summary is grouped by resource type and separates create, update, delete, and untrack; its total counts planned actions. Check for:
 
 - Parse errors or XML syntax errors
 - Missing `content_id` references
@@ -110,7 +110,7 @@ If the dry-run has errors:
 - Re-run the dry-run.
 - Do not proceed to Step 5 until dry-run is clean.
 
-Show the user a summary of what the dry-run would deploy (resource counts by type).
+Use the grouped planned-action summary (create/update/delete/untrack by resource type) to assess impact, then show the user the expected creates, updates, and stale-resource actions from the report. During deployment, completion logs may arrive out of plan order; rely on the final JSON report for authoritative ordered outcomes and content-to-review entries.
 
 ---
 
@@ -120,7 +120,7 @@ Tell the user: "Dry-run complete. Ready to deploy to Canvas. Shall I proceed?"
 
 Wait for explicit confirmation before running the full deploy.
 
-After confirmation, run:
+After confirmation, run the reviewed command. By default, deployment handles tracked resources omitted from the source graph as stale; use `--no-cleanup` only for the reviewed targeted deployment.
 
 ```bash
 set -a && source <path-to-.env> && set +a
@@ -142,9 +142,9 @@ With CSS:
 mdxcanvas --course-info course_info.json --css style.css course.canvas.md.xml.jinja
 ```
 
-Read the deploy output. Report success or failure to the user.
+Read the deploy report. Report success or failure to the user, including any `deployment.content_to_review` items. A review item with a null URL must still be located and reviewed in Canvas by its resource type and name. Human output groups successful resources by Canvas link, prints attempted failures with context, and replaces individual blocked lines with one `X resources not deployed` count. Use the JSON report for individual action details.
 
-If the deploy fails: read the error message, diagnose the cause, fix the source, and offer to re-run.
+If the deploy fails or is interrupted: stop and read `processing.error`, `deployment.errors`, and the completed changes. Reconcile partial Canvas mutations and ledger state before proposing any bounded repair or rerun; do not immediately repeat a deployment. Ctrl-C waits for active deployment calls and makes one best-effort completed-state ledger save before propagating the interrupt; verify that save rather than assuming it succeeded.
 
 ---
 
@@ -152,14 +152,7 @@ If the deploy fails: read the error message, diagnose the cause, fix the source,
 
 Tell the user: "Deploy complete. Check Canvas to confirm the resources appear as expected."
 
-Ask: "Do you want me to run cleanup to remove stale Canvas resources that are no longer in source?"
-
-If yes, confirm once more ("This will delete Canvas resources not present in the source files."), then run:
-
-```bash
-set -a && source <path-to-.env> && set +a
-mdxcanvas --course-info <path/to/course_info.json> --cleanup <path/to/course.canvas.md.xml.jinja>
-```
+Inspect every item listed in `deployment.content_to_review` before treating the deployment as complete. If the report has no such items, it has no indicated manual-review requirement. Do not run a second deployment merely to enable cleanup: cleanup is already enabled by default. Use `--no-cleanup` on a future, deliberately targeted deployment when stale handling must be suppressed.
 
 ---
 
