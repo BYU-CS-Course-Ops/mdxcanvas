@@ -1,56 +1,23 @@
-# MDXCanvas Deployment Engineer Feedback
+# MDXCanvas deployment notes
 
-## Suspected typo in default stale-resource types
+## New assignment groups with drop rules can fail
 
-**Observed version:** MDXCanvas source reports `0.7.6`.
+Observed with effective MDXCanvas 0.8.1 and CanvasAPI 3.5.0 on 2026-09-11.
 
-**Affected role guidance:** The role states that normal deployment removes stale quizzes and module items. This accurately describes the installed source's literal behavior, but that source behavior is likely defective.
+A full deployment that created new assignment groups with `drop_lowest="1"` or `drop_highest="1"` failed when Canvas received the rule before assignments had been added to each group:
 
-### Evidence
-
-- `mdxcanvas/deploy/canvas_deploy.py` defines:
-
-  ```python
-  DEFAULT_STALE_RESOURCE_TYPES = frozenset({'quiz', 'module_item'})
-  ```
-
-- `QuizTagProcessor` emits each question as an independent `quiz_question` resource with a stable key of `<quiz-id>|<question-id>`.
-- `deploy_quiz()` creates/updates quiz metadata only.
-- `deploy_quiz_question()` creates or edits questions; it does not remove a question omitted from source.
-- Generic stale-resource handling explicitly supports `quiz_question`, looks it up through its parent quiz, prioritizes it for deletion, and deletes it during full `--cleanup`.
-- The pre-0.6.15 migration explicitly prunes questions absent from the ledger, but this is a one-time migration path and does not handle ordinary source removals after migration.
-- Therefore, ordinary removal of a question from source leaves that Canvas question behind, while omission of an entire quiz from a targeted graph can delete the whole quiz.
-- `tests/test_stale_cleanup.py` and CLI help currently assert/document stale `quiz` behavior. They confirm current behavior but may encode the same typo rather than establish desired semantics.
-- Git history introduced the constant in commit `c740459` with a test that expects `quiz`; this means the current behavior was committed deliberately, but it does not resolve the mismatch with question-level deployment semantics.
-
-### Likely correction
-
-The probable intended default is:
-
-```python
-DEFAULT_STALE_RESOURCE_TYPES = frozenset({'quiz_question', 'module_item'})
+```text
+Drop rules cannot be higher than the number of assignments
 ```
 
-This needs maintainer confirmation and focused tests before changing production behavior.
+The group shells were created, their full update failed, and dependent resources were blocked. Independent resources completed and a 30-entry ledger was saved. A dry run did not predict the Canvas-side validation failure.
 
-### Operational impact
+Operational guidance:
 
-Until fixed and released:
+- Treat adding a drop rule to a new/empty group as a possible partial-deployment risk.
+- After this failure, do not blindly rerun. Inspect the report, Canvas resources, and saved ledger first.
+- A safe source-level workaround for a smoke-test fixture is to omit drop rules during initial deployment. Adding rules later requires separate review because the groups must contain enough assignments first.
 
-- normal deployments can delete whole tracked quizzes omitted from the rendered graph;
-- removed source questions can remain in existing Canvas quizzes;
-- targeted deployments are especially dangerous because unrelated tracked quizzes may appear stale;
-- operators must inspect both stale quizzes and stale quiz questions and verify actual behavior for the installed version;
-- do not compensate with full `--cleanup` on a live course without explicit destructive-action review.
+## Editable-install version reporting
 
-### Resolution
-
-Corrected for MDXCanvas `0.7.7`: the default stale set is now `{'quiz_question', 'module_item'}`. CLI help, focused cleanup tests, and the Deployment Engineer role were updated to match. The submitted-quiz safeguard used during question updates is not invoked by stale-question deletion, so operators must still review stale questions and parent-quiz submissions before deployment.
-
-## Python compatibility issue found during verification
-
-**Observed environment:** Python 3.11.4.
-
-The focused stale-cleanup tests pass, but full test collection fails in `mdxcanvas/text_processing/markdown_processing.py` because an f-string expression contains `"\n"` and requires newer f-string parsing behavior. `pyproject.toml` currently declares Python `^3.10`, so this is a package compatibility discrepancy rather than a failure caused by the stale-cleanup change.
-
-Recommended follow-up: either rewrite that expression to remain compatible with the declared Python range or intentionally raise the package's minimum Python version. Until resolved, use a verified compatible environment for full-suite and deployment work.
+In this checkout, distribution metadata reported `mdxcanvas 0.6.21`, while the imported editable package read `mdxcanvas/VERSION` as `0.8.1`. Record both package location and effective `mdxcanvas.__version__`; do not rely only on `importlib.metadata.version()`.
