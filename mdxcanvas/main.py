@@ -1,25 +1,17 @@
+from __future__ import annotations
+
 import argparse
 import json
 import logging
 import os
 from pathlib import Path
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
-import markdowndata
-import yaml
-from canvasapi import Canvas
-from canvasapi.course import Course
-
-from .deploy.canvas_deploy import deploy_to_canvas
-from .deployment_report import DeploymentReport
 from .our_logging import get_logger
-from .processing_context import FileContext
-from .resources import ResourceManager
-from .text_processing.jinja_processing import process_jinja
-from .text_processing.markdown_processing import process_markdown
-from .util import parse_soup_from_xml
-from .xml_processing.inline_styling import bake_css
-from .xml_processing.xml_processing import process_canvas_xml, preprocess_xml
+
+if TYPE_CHECKING:
+    from canvasapi.course import Course
+    from .resources import ResourceManager
 
 logger = get_logger()
 
@@ -34,12 +26,14 @@ class CourseInfo(TypedDict):
 def load_config(config_path: Path):
     ext = config_path.suffix.lower()
     if ext in ['.yaml', '.yml']:
+        import yaml
         return yaml.safe_load(config_path.read_text())
 
     elif ext in ['.json']:
         return json.loads(config_path.read_text())
 
     elif ext in ['.md', '.mdd']:
+        import markdowndata
         return markdowndata.loads(config_path.read_text())
 
     else:
@@ -55,6 +49,9 @@ def is_jinja(content_type):
 
 
 def _post_process_content(xml_content: str, global_css: str) -> str:
+    from .util import parse_soup_from_xml
+    from .xml_processing.inline_styling import bake_css
+
     # - bake in CSS styles
     soup = parse_soup_from_xml(xml_content)
     xml_postprocessors = [
@@ -83,6 +80,10 @@ def process_file(
     Process content-modifying XML tags (e.g. img, or file, or zip, or include)
     Post-process the content (whole XML in, whole XML out, e.g. bake CSS)
     """
+    from .text_processing.jinja_processing import process_jinja
+    from .text_processing.markdown_processing import process_markdown
+    from .xml_processing.xml_processing import preprocess_xml
+
     if is_jinja(content_type):
         content = process_jinja(
             content,
@@ -129,6 +130,8 @@ def get_course(api_token: str, api_url: str, canvas_course_id: int) -> Course:
     :param canvas_course_id: int: The ID of the Canvas course.
     :return: Course: A Canvas Course object.
     """
+    from canvasapi import Canvas
+
     canvas = Canvas(api_url, api_token)
     course: Course = canvas.get_course(canvas_course_id)
 
@@ -147,9 +150,15 @@ def main(
         templates: list[Path] | None = None,
         css_file: Path | None = None,
         dryrun: bool = False,
-        cleanup: bool = False,
+        no_cleanup: bool = False,
         output_file: str | None = None
 ):
+    from .deploy.canvas_deploy import deploy_to_canvas
+    from .deployment_report import DeploymentReport
+    from .processing_context import FileContext
+    from .resources import ResourceManager
+    from .xml_processing.xml_processing import process_canvas_xml
+
     # Initialize deployment report
     report = DeploymentReport(output_file)
     logger = get_logger()
@@ -190,8 +199,8 @@ def main(
             resources = process_canvas_xml(resources, processed_content)
 
             # Deploy XML
-            deploy_to_canvas(course, course_info['LOCAL_TIME_ZONE'], resources, report, dryrun=dryrun, cleanup=cleanup,
-                            deploy_root=deploy_root)
+            deploy_to_canvas(course, course_info['LOCAL_TIME_ZONE'], resources, report, dryrun=dryrun,
+                            no_cleanup=no_cleanup, deploy_root=deploy_root)
 
     except Exception as e:
         logger.exception(f"{type(e).__name__}: {e}")
@@ -200,6 +209,8 @@ def main(
     finally:
         report.save_report()
         report.print_report()
+
+    return report
 
 
 def entry():
@@ -215,10 +226,9 @@ def entry():
     parser.add_argument('--debug', action='store_true')
     parser.add_argument('--dryrun', '--dry-run', action='store_true')
     parser.add_argument(
-        '--cleanup',
+        '--no-cleanup',
         action='store_true',
-        help='Remove all Canvas resources not present in the input file. '
-             'Stale quiz questions and module items are removed by default.'
+        help='Keep tracked resources omitted from this targeted deployment.'
     )
     parser.add_argument('--output-file', type=str, default=None)
     args = parser.parse_args()
@@ -230,7 +240,7 @@ def entry():
     if args.debug:
         logger.setLevel(logging.DEBUG)
 
-    main(
+    report = main(
         canvas_api_token=api_token,
         course_info_file=args.course_info,
         input_file=args.filename,
@@ -239,9 +249,11 @@ def entry():
         templates=args.templates,
         css_file=args.css,
         dryrun=args.dryrun,
-        cleanup=args.cleanup,
+        no_cleanup=args.no_cleanup,
         output_file=args.output_file
     )
+    if report.has_errors:
+        raise SystemExit(1)
 
 
 if __name__ == '__main__':

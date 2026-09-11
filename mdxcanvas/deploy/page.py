@@ -23,11 +23,3 @@ def deploy_page(course: Course, page_info: dict, _: Path) -> tuple[PageInfo, Non
     }
 
     return page_object_info, None
-
-
-def deploy_shell_page(course: Course, page_info: dict, deploy_root: Path) -> tuple[PageInfo, None]:
-    shell_page_info = page_info.copy()
-    shell_page_info[
-        'body'] = "<p>This is a shell page created to break a dependency cycle. The full content will be deployed later.</p>"
-
-    return deploy_page(course, shell_page_info, deploy_root)

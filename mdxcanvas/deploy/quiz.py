@@ -13,9 +13,9 @@ def get_quiz_question(course: Course, quiz_id: int | str | None, question_id: in
     return None
 
 
-def get_quiz_review_info(canvas_quiz) -> tuple[str, str] | None:
+def get_quiz_review_info(canvas_quiz) -> tuple[str, str | None] | None:
     if any(canvas_quiz.get_submissions()):
-        return canvas_quiz.title, getattr(canvas_quiz, 'html_url', '')
+        return canvas_quiz.title, getattr(canvas_quiz, 'html_url', None)
     return None
 
 
@@ -31,7 +31,7 @@ def republish_quiz_after_edit(canvas_quiz, was_published: bool):
         canvas_quiz.edit(quiz={'published': True})
 
 
-def deploy_quiz(course: Course, quiz_data: dict, _: Path) -> tuple[QuizInfo, tuple[str, str] | None]:
+def deploy_quiz(course: Course, quiz_data: dict, _: Path) -> tuple[QuizInfo, tuple[str, str | None] | None]:
     """Deploy quiz settings/metadata only. Questions are deployed separately."""
     info = None
     if quiz_id := quiz_data.get('canvas_id'):
@@ -64,7 +64,7 @@ def deploy_quiz(course: Course, quiz_data: dict, _: Path) -> tuple[QuizInfo, tup
     ), info
 
 
-def deploy_quiz_question(course: Course, quiz_question_data: dict, _: Path) -> tuple[QuizQuestionInfo, tuple[str, str] | None]:
+def deploy_quiz_question(course: Course, quiz_question_data: dict, _: Path) -> tuple[QuizQuestionInfo, tuple[str, str | None] | None]:
     if not (canvas_quiz := course.get_quiz(quiz_question_data['quiz_id'])):
         raise ValueError(f'Unable to find quiz {quiz_question_data["quiz_id"]}')
 
@@ -96,13 +96,13 @@ def deploy_quiz_question(course: Course, quiz_question_data: dict, _: Path) -> t
 
     return QuizQuestionInfo(
         id=quiz_question.id,
-        quiz_id=canvas_quiz.id,
+        parent={'type': 'quiz', 'id': str(canvas_quiz.id)},
         uri=f'/courses/{course.id}/quizzes/{canvas_quiz.id}',
         url=getattr(canvas_quiz, 'html_url', None)
     ), info
 
 
-def deploy_quiz_question_order(course: Course, order_data: QuizQuestionOrderData, _: Path) -> tuple[QuizQuestionOrderInfo, tuple[str, str] | None]:
+def deploy_quiz_question_order(course: Course, order_data: QuizQuestionOrderData, _: Path) -> tuple[QuizQuestionOrderInfo, tuple[str, str | None] | None]:
     """
     Reorder quiz questions using Canvas API.
     NOTE: No CanvasAPI wrapper method exists for this endpoint.
@@ -148,9 +148,3 @@ def deploy_quiz_question_order(course: Course, order_data: QuizQuestionOrderData
         uri=f'/courses/{course.id}/quizzes/{quiz_id}',
         url=getattr(canvas_quiz, 'html_url', None)
     ), info
-
-
-def deploy_shell_quiz(course: Course, quiz_data: dict, deploy_root: Path) -> tuple[QuizInfo, tuple[str, str] | None]:
-    shell_quiz_data = quiz_data.copy()
-    shell_quiz_data['description'] = "<p>Shell quiz for dependency cycle.</p>"
-    return deploy_quiz(course, shell_quiz_data, deploy_root)

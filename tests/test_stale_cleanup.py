@@ -1,166 +1,129 @@
-from pathlib import Path
+import json
 
-from mdxcanvas.deploy.canvas_deploy import (
-    DEFAULT_STALE_RESOURCE_TYPES,
-    deploy_to_canvas,
-    get_stale_resources,
-)
+from mdxcanvas.deploy.canvas_deploy import deploy_to_canvas
+from mdxcanvas.deployment_report import DeploymentReport
+from mdxcanvas.resources import CanvasResource
 
 
-class FakeMD5Sums:
-    def __init__(self, data):
-        self._data = data
+class ReadLedgerOnlyCourse:
+    def __init__(self, envelope):
+        self.envelope = envelope
 
-    def items(self):
-        return self._data.items()
+    def get_files(self):
+        response = type("LedgerFile", (), {
+            "display_name": "_md5sums.json",
+            "url": "https://safe.invalid/_md5sums.json",
+        })
+        return [response()]
 
-    def get_canvas_info(self, item):
-        return self._data.get(item, {}).get('canvas_info')
+    def __getattr__(self, name):
+        raise AssertionError(f"unexpected resource-specific Canvas access: {name}")
 
 
-def test_get_stale_resources_filters_allowed_types_and_priority():
-    resources = {}
-    md5s = FakeMD5Sums({
-        ('assignment', 'keep-assignment'): {
-            'canvas_info': {'id': '10'},
-        },
-        ('module_item', 'stale-module-item'): {
-            'canvas_info': {'id': '20', 'module_id': '200'},
-        },
-        ('quiz', 'stale-quiz'): {
-            'canvas_info': {'id': '30'},
-        },
-        ('quiz_question', 'stale-question'): {
-            'canvas_info': {'id': '40', 'quiz_id': '30'},
-        },
-        ('syllabus', 'ignored-syllabus'): {
-            'canvas_info': {'id': '50'},
-        },
-    })
-
-    stale = get_stale_resources(
-        resources,
-        md5s,
-        allowed_types=DEFAULT_STALE_RESOURCE_TYPES,
+def install_ledger(monkeypatch, envelope):
+    monkeypatch.setattr(
+        "mdxcanvas.deploy.checksums.requests.get",
+        lambda _url: type("Response", (), {"text": json.dumps(envelope)})(),
     )
+    return ReadLedgerOnlyCourse(envelope)
 
-    assert stale == [
-        ('module_item', 'stale-module-item', {'id': '20', 'module_id': '200'}),
-        ('quiz_question', 'stale-question', {'id': '40', 'quiz_id': '30'}),
+
+def envelope(resources):
+    return {"mdxcanvas_version": "0.8.0", "resources": resources}
+
+
+def tracked(canvas_id="1", *, parent=None):
+    canvas_info = {"id": canvas_id}
+    if parent is not None:
+        canvas_info["parent"] = parent
+    return {"checksum": "old", "canvas_info": canvas_info}
+
+
+def test_default_cleanup_plans_delete_and_untrack_for_all_stale_resources(monkeypatch, tmp_path):
+    course = install_ledger(monkeypatch, envelope({
+        "page|stale-page": tracked("10"),
+        "course_settings|": tracked("course"),
+    }))
+    report = DeploymentReport()
+
+    deploy_to_canvas(course, "UTC", {}, report, tmp_path, dryrun=True)
+
+    assert report.report["deployment"]["cleanup"] == "enabled"
+    assert report.report["deployment"]["expected_changes"] == [
+        {"change": "stale", "resource_type": "course_settings", "resource_id": ""},
+        {"change": "stale", "resource_type": "page", "resource_id": "stale-page"},
     ]
 
 
-def test_navigation_checksum_is_retained_even_during_full_cleanup():
-    entry = {
-        'checksum': 'navigation-checksum',
-        'canvas_info': {'id': '99'},
-    }
-    md5s = FakeMD5Sums({
-        ('navigation', 'navigation'): entry,
-    })
-
-    stale = get_stale_resources({}, md5s, allowed_types=None)
-
-    assert stale == []
-    assert md5s.get_canvas_info(('navigation', 'navigation')) == {'id': '99'}
-    assert md5s._data[('navigation', 'navigation')] == entry
-
-
-def test_deploy_to_canvas_applies_default_stale_cleanup(monkeypatch):
-    recorded = {}
-
-    class StubMD5Sums:
-        def __init__(self, *_args, **_kwargs):
-            pass
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return False
-
-    def fake_remove(_course, _resources, _md5s, allowed_types=None):
-        recorded['allowed_types'] = allowed_types
-        return 2
-
-    def fake_log_completion(actions, _elapsed):
-        recorded['actions'] = actions
-
-    monkeypatch.setattr('mdxcanvas.deploy.canvas_deploy.MD5Sums', StubMD5Sums)
-    monkeypatch.setattr('mdxcanvas.deploy.canvas_deploy.migrate', lambda *_args: None)
-    monkeypatch.setattr(
-        'mdxcanvas.deploy.canvas_deploy._prepare_deployment_order',
-        lambda _resources: ({}, []),
-    )
-    monkeypatch.setattr(
-        'mdxcanvas.deploy.canvas_deploy.identify_modified_or_outdated',
-        lambda *_args, **_kwargs: {},
-    )
-    monkeypatch.setattr(
-        'mdxcanvas.deploy.canvas_deploy._remove_stale_resources',
-        fake_remove,
-    )
-    monkeypatch.setattr(
-        'mdxcanvas.deploy.canvas_deploy._log_completion',
-        fake_log_completion,
-    )
+def test_no_cleanup_suppresses_delete_and_untrack_stale_resources(monkeypatch, tmp_path):
+    course = install_ledger(monkeypatch, envelope({
+        "page|stale-page": tracked("10"),
+        "course_settings|": tracked("course"),
+    }))
+    report = DeploymentReport()
 
     deploy_to_canvas(
-        course=object(),
-        timezone='America/Denver',
-        resources={},
-        report=object(),
-        deploy_root=Path('.'),
-        cleanup=False,
+        course, "UTC", {}, report, tmp_path, dryrun=True, no_cleanup=True
     )
 
-    assert recorded['allowed_types'] == DEFAULT_STALE_RESOURCE_TYPES
-    assert recorded['actions'] == ['2 stale resources removed']
+    assert report.report["deployment"]["cleanup"] == "disabled"
+    assert report.report["deployment"]["expected_changes"] == []
 
 
-def test_deploy_to_canvas_cleanup_flag_keeps_full_cleanup(monkeypatch):
-    recorded = {}
-
-    class StubMD5Sums:
-        def __init__(self, *_args, **_kwargs):
-            pass
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return False
-
-    def fake_remove(_course, _resources, _md5s, allowed_types=None):
-        recorded['allowed_types'] = allowed_types
-        return 1
-
-    monkeypatch.setattr('mdxcanvas.deploy.canvas_deploy.MD5Sums', StubMD5Sums)
-    monkeypatch.setattr('mdxcanvas.deploy.canvas_deploy.migrate', lambda *_args: None)
-    monkeypatch.setattr(
-        'mdxcanvas.deploy.canvas_deploy._prepare_deployment_order',
-        lambda _resources: ({}, []),
+def test_ledger_only_explicit_reference_is_retained_and_not_stale(monkeypatch, tmp_path):
+    course = install_ledger(monkeypatch, envelope({
+        "page|retained": tracked("10"),
+        "page|actually-stale": tracked("11"),
+    }))
+    referring = CanvasResource(
+        type="assignment",
+        id="referrer",
+        data={"name": "Referrer", "description": "__@@page||retained||id@@__"},
+        content_path="course.md",
     )
-    monkeypatch.setattr(
-        'mdxcanvas.deploy.canvas_deploy.identify_modified_or_outdated',
-        lambda *_args, **_kwargs: {},
-    )
-    monkeypatch.setattr(
-        'mdxcanvas.deploy.canvas_deploy._remove_stale_resources',
-        fake_remove,
-    )
-    monkeypatch.setattr(
-        'mdxcanvas.deploy.canvas_deploy._log_completion',
-        lambda *_args: None,
-    )
+    report = DeploymentReport()
 
     deploy_to_canvas(
-        course=object(),
-        timezone='America/Denver',
-        resources={},
-        report=object(),
-        deploy_root=Path('.'),
-        cleanup=True,
+        course,
+        "UTC",
+        {("assignment", "referrer"): referring},
+        report,
+        tmp_path,
+        dryrun=True,
     )
 
-    assert recorded['allowed_types'] is None
+    assert report.report["deployment"]["expected_changes"] == [
+        {"change": "new", "resource_type": "assignment", "resource_id": "referrer"},
+        {"change": "stale", "resource_type": "page", "resource_id": "actually-stale"},
+    ]
+
+
+def test_missing_ledger_only_reference_field_is_contextual_planning_error(monkeypatch, tmp_path):
+    course = install_ledger(monkeypatch, envelope({
+        "page|retained": tracked("10"),
+    }))
+    referring = CanvasResource(
+        type="assignment",
+        id="referrer",
+        data={"name": "Referrer", "description": "__@@page||retained||url@@__"},
+        content_path="source/course.md",
+    )
+    report = DeploymentReport()
+
+    deploy_to_canvas(
+        course,
+        "UTC",
+        {("assignment", "referrer"): referring},
+        report,
+        tmp_path,
+        dryrun=True,
+    )
+
+    assert report.report["processing"]["error"] == ""
+    assert report.report["deployment"]["changes_made"] == []
+    [error] = report.report["deployment"]["errors"]
+    assert error["stage"] == "planning"
+    assert error["resource_type"] == "assignment"
+    assert error["resource_id"] == "referrer"
+    assert error["source"] == "source/course.md"
+    assert "url" in error["error"]

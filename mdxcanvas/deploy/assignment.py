@@ -25,11 +25,3 @@ def deploy_assignment(course: Course, assignment_info: dict, _: Path) -> tuple[A
     }
 
     return assignment_object_info, None
-
-
-def deploy_shell_assignment(course: Course, assignment_info: dict, deploy_root: Path) -> tuple[AssignmentInfo, None]:
-    shell_assignment_info = assignment_info.copy()
-    shell_assignment_info[
-        'description'] = "<p>This is a shell assignment created to break a dependency cycle. The full content will be deployed later.</p>"
-
-    return deploy_assignment(course, shell_assignment_info, deploy_root)

@@ -9,6 +9,11 @@ StrLike = str | _AttributeValue
 # Information about deployed resources
 #
 
+class ParentInfo(TypedDict):
+    type: str
+    id: str
+
+
 class ResourceInfo(TypedDict):
     id: str
 
@@ -55,14 +60,14 @@ class ModuleInfo(ResourceInfo):
 
 class ModuleItemInfo(ResourceInfo):
     id: str
-    module_id: str
+    parent: ParentInfo
     uri: str
     url: str
 
 
 class OverrideInfo(ResourceInfo):
     id: str
-    assignment_id: str
+    parent: ParentInfo
 
 
 class PageInfo(ResourceInfo):
@@ -82,7 +87,7 @@ class QuizInfo(ResourceInfo):
 
 class QuizQuestionInfo(ResourceInfo):
     id: str
-    quiz_id: str
+    parent: ParentInfo
     uri: str
     url: str | None
 
