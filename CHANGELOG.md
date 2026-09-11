@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.1 - 2026-09-11
+
+### Fixed
+
+- Quarto slide rendering now includes local project assets before embedding them in standalone HTML, and asset changes trigger redeployment.
+
 ## 0.8.0 - 2026-09-10
 
 While a major version increase (0.7 → 0.8), 0.8 does not introduce any breaking changes in syntax or behavior. It involved a significant re-write of the deployment machinery, so there is some risk of new bugs. Keep this in mind when upgrading from 0.7.x. 

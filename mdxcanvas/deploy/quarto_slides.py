@@ -19,43 +19,25 @@ from ..util import relative_to_abs
 logger = get_logger()
 
 
-def _copy_quarto_dependencies(quarto_root: Path, temp_quarto_root: Path) -> None:
-    """Copy the Quarto project files needed to render a slide deck."""
-    temp_quarto_root.mkdir(parents=True, exist_ok=True)
-
-    for config_name in ("_quarto.yaml", "_quarto.yml"):
-        config = quarto_root / config_name
-        if config.exists():
-            shutil.copy2(config, temp_quarto_root / config_name)
-
-    extensions = quarto_root / "_extensions"
-    if extensions.exists():
-        shutil.copytree(
-            extensions,
-            temp_quarto_root / "_extensions",
-            dirs_exist_ok=True,
-        )
-
-
-def _copy_slide_to_temp(slide_file: Path, quarto_root: Path, temp_quarto_root: Path) -> Path:
-    """Copy the target slide source into the same relative location under temp."""
-    relative_slide_file = slide_file.relative_to(quarto_root)
-    temp_slide_file = temp_quarto_root / relative_slide_file
-    temp_slide_file.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(slide_file, temp_slide_file)
-    return temp_slide_file
+def _copy_quarto_project(quarto_root: Path, temp_quarto_root: Path) -> None:
+    """Copy the Quarto project so rendering can resolve all local assets."""
+    shutil.copytree(
+        quarto_root,
+        temp_quarto_root,
+        dirs_exist_ok=True,
+        ignore=shutil.ignore_patterns(".git", ".quarto", "_freeze", "__pycache__"),
+    )
 
 
 def _run_quarto_render(data: QuartoSlidesData, tmpdir: Path, deploy_root: Path) -> Path:
-    # Copy just the target slide and Quarto project dependencies into a temp
-    # project, render there, bundle the rendered HTML in place, and return the
-    # temp HTML path for deployment.
+    # Render an isolated copy so parallel renders cannot interfere with each
+    # other while preserving every local asset available to the source deck.
     slide_file = relative_to_abs(Path(data['path']), deploy_root)
     quarto_root = relative_to_abs(Path(data['root_path']), deploy_root)
     temp_quarto_root = tmpdir.absolute()
 
-    _copy_quarto_dependencies(quarto_root, temp_quarto_root)
-    temp_slide_file = _copy_slide_to_temp(slide_file, quarto_root, temp_quarto_root)
+    _copy_quarto_project(quarto_root, temp_quarto_root)
+    temp_slide_file = temp_quarto_root / slide_file.relative_to(quarto_root)
 
     output_name = str(data['slides_name'])
     temp_output_file = (temp_slide_file.parent / output_name).absolute()
@@ -184,16 +166,16 @@ def _inline_css(html: str, base_dir: Path) -> str:
 
 def _inline_assets(html: str, base_dir: Path) -> str:
     def repl(match: re.Match[str]) -> str:
-        attr, quote, url = match.group(1), match.group(2), match.group(3)
+        prefix, attr, separator, quote, url = match.groups()
         data_url = _data_url(url, base_dir)
         if not data_url:
             return match.group(0)
-        return f"{attr}={quote}{data_url}{quote}"
+        return f"{prefix}{attr}{separator}{quote}{data_url}{quote}"
 
     # Inline image/script resources while leaving links between HTML pages
     # untouched. Stylesheets are handled separately by _inline_css.
     pattern = re.compile(
-        r"<(?:img|script|source)\b[^>]*?\b(src)\s*=\s*(['\"])(.*?)\2",
+        r"(<(?:img|script|source)\b[^>]*?\s)(data-src|src)(\s*=\s*)(['\"])(.*?)\4",
         re.IGNORECASE,
     )
     return pattern.sub(repl, html)

@@ -314,7 +314,7 @@ def test_bookkeeping_failure_does_not_retry_canvas_handler(monkeypatch, tmp_path
 
     old = handlers["page"]
     handlers["page"] = HandlerSpec(create, old.update, old.delete, prepare_cycle_breaker=old.prepare_cycle_breaker)
-    store = Store({"mdxcanvas_version": "0.8.0", "resources": {}})
+    store = Store({"mdxcanvas_version": "0.8.1", "resources": {}})
     install(monkeypatch, store, handlers)
     report = DeploymentReport()
 
