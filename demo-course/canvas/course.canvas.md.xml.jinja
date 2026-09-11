@@ -1,0 +1,71 @@
+<course>
+    <navigation>
+        <tab name="Syllabus"/>
+        <tab name="Announcements"/>
+        <tab name="Modules"/>
+        <tab name="Assignments"/>
+        <tab name="Quizzes"/>
+        <tab name="Grades"/>
+        <tab name="People"/>
+    </navigation>
+
+    <style>
+        .source-note { font-size: 0.9rem; color: #475569; }
+    </style>
+
+    <course-settings
+        name="{{ COURSE_NAME }}"
+        code="{{ COURSE_CODE }}"
+        image="../assets/course-card.png"
+        canvas_folder="Demo Course"/>
+
+    <syllabus>
+        <include path="syllabus.md"/>
+    </syllabus>
+
+    <assignment-groups>
+        <group id="practice" name="Practice" weight="40" position="1"
+               drop_lowest="1"/>
+        <group id="quizzes" name="Quizzes" weight="30" position="2"
+               drop_highest="1"/>
+        <group id="projects" name="Projects" weight="30" position="3"/>
+        <group id="ungraded" name="Ungraded" weight="0" position="4"/>
+    </assignment-groups>
+
+    <include path="content.canvas.md.xml.jinja" usediv="false"/>
+
+    {% macro content_item(type, id, indent=0, requirement=None, title=None) -%}
+    <item id="item-{{ id }}" type="{{ type }}" content_id="{{ id }}"
+          indent="{{ indent }}"{% if requirement %} completion_requirement="{{ requirement }}"{% endif %}{% if title %} title="{{ title }}"{% endif %}/>
+    {%- endmacro %}
+
+    <module id="unit-0" title="Unit 0 - Getting Started" position="1">
+        <item id="unit-0-overview" type="SubHeader" title="Start here"/>
+        <item id="unit-0-syllabus" type="syllabus" title="Read the syllabus"
+              completion_requirement="type=must_view"/>
+        {{ content_item('page', 'welcome', 1, 'type=must_view') }}
+        {{ content_item('page', 'content-showcase', 1, 'type=must_view', 'Explore rendered content') }}
+        {{ content_item('quiz', 'setup-check', 1, 'type=min_score,min_score=1') }}
+        <item id="unit-0-docs" type="ExternalURL" title="Canvas API documentation"
+              external_url="{{ EXTERNAL_LINK }}" indent="1" new_tab="true"/>
+    </module>
+
+    <module id="unit-1" title="Unit 1 - Content Patterns" position="2"
+            prerequisite_module_ids="unit-0">
+        {% for assignment_id in ['reading-response', 'code-lab', 'external-tool-demo'] %}
+        {{ content_item('assignment', assignment_id, 1, 'type=must_submit') }}
+        {% endfor %}
+        {{ content_item('quiz', 'content-check', 1, 'type=min_score,min_score=1') }}
+    </module>
+
+    <module id="unit-2" title="Unit 2 - Feature Gallery" position="3"
+            prerequisite_module_ids="unit-0,unit-1">
+        <item id="unit-2-assets" type="SubHeader" title="Generated assets"/>
+        {{ content_item('page', 'asset-gallery', 1, 'type=must_view') }}
+        <item id="item-reference-file" type="file" content_id="reference.txt" indent="2"/>
+        {{ content_item('page', 'diagram-gallery', 1) }}
+        {{ content_item('page', 'slides-gallery', 1) }}
+        <item id="unit-2-assessment" type="SubHeader" title="Assessment"/>
+        {{ content_item('quiz', 'question-gallery', 1, 'type=must_submit') }}
+    </module>
+</course>

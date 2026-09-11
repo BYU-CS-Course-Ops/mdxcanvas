@@ -1,0 +1,39 @@
+<div>
+{% for index, assignment in enumerate(args) %}
+    <assignment id="{{ assignment['id'] }}"
+                title="{{ assignment['title'] }}"
+                position="{{ index + 1 }}"
+                assignment_group="{{ assignment['group'] }}"
+                points_possible="{{ assignment['points'] }}"
+                due_at="{{ UNIT_1_DUE }}, {{ YEAR }}, 11:59 PM"
+                available_from="{{ COURSE_START }}, {{ YEAR }}, 8:00 AM"
+                available_to="{{ COURSE_END }}, {{ YEAR }}, 11:59 PM"
+                late_due="{{ COURSE_END }}, {{ YEAR }}, 11:59 PM"
+                submission_types="{{ assignment['submission_types'] }}"
+                {% if assignment.get('allowed_extensions') %}allowed_extensions="{{ assignment['allowed_extensions'] }}"{% endif %}
+                {% if assignment.get('external_tool_url') %}external_tool_tag_attributes="url={{ assignment['external_tool_url'] }},new_tab=true"{% endif %}
+                {% if assignment['id'] == 'code-lab' and TEST_SECTION_IDS %}only_visible_to_overrides="true"{% endif %}>
+        <description>
+            # {{ assignment['title'] }}
+
+            {{ assignment['instructions'] }}
+
+            See <course-link type="page" id="unit-1-notes">the unit notes</course-link>.
+            *Generated from an args record; updated <timestamp/>.*
+
+            {% if exists('extra-instructions.md') %}
+            <include path="extra-instructions.md"/>
+            {% endif %}
+        </description>
+        {% if assignment['id'] == 'code-lab' and TEST_SECTION_IDS %}
+        <overrides>
+            {% for section_id in TEST_SECTION_IDS %}
+            <override section_id="{{ section_id }}"
+                      due_at="{{ UNIT_1_DUE }}, {{ YEAR }}, 10:00 PM"
+                      late_due="{{ COURSE_END }}, {{ YEAR }}, 10:00 PM"/>
+            {% endfor %}
+        </overrides>
+        {% endif %}
+    </assignment>
+{% endfor %}
+</div>

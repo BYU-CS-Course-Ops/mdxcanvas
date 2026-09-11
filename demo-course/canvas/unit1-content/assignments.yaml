@@ -1,0 +1,20 @@
+- id: reading-response
+  title: Reading Response
+  points: 5
+  group: practice
+  submission_types: not_graded
+  instructions: Review the generated pages and note any rendering defects.
+- id: code-lab
+  title: Code Lab
+  points: 10
+  group: practice
+  submission_types: online_upload
+  allowed_extensions: py,txt
+  instructions: Upload a small Python or text file to exercise submission settings.
+- id: external-tool-demo
+  title: External Tool Demo
+  points: 10
+  group: projects
+  submission_types: external_tool
+  external_tool_url: https://example.com/lti
+  instructions: This placeholder assignment verifies external-tool payload generation; do not launch it.

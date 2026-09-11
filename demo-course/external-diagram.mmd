@@ -1,7 +1,0 @@
-graph TD
-    Start([Start Process]) --> Step1[Initialize]
-    Step1 --> Step2[Process Data]
-    Step2 --> Decision{Success?}
-    Decision -->|Yes| End([Complete])
-    Decision -->|No| Error[Handle Error]
-    Error --> Step1

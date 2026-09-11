@@ -1,0 +1,102 @@
+<quiz id="question-gallery" title="Question Type Gallery"
+      assignment_group="quizzes"
+      due_at="{{ UNIT_2_DUE }}, {{ YEAR }}, 11:59 PM"
+      available_from="{{ COURSE_START }}, {{ YEAR }}, 8:00 AM"
+      available_to="{{ COURSE_END }}, {{ YEAR }}, 11:59 PM"
+      quiz_type="assignment" points_possible="22"
+      time_limit="30" allowed_attempts="2" scoring_policy="keep_latest"
+      shuffle_answers="true" one_question_at_a_time="true" cant_go_back="false"
+      show_correct_answers="true"
+      show_correct_answers_last_attempt="true"
+      show_correct_answers_at="{{ UNIT_2_DUE }}, {{ YEAR }}, 11:59 PM"
+      hide_correct_answers_at="{{ COURSE_END }}, {{ YEAR }}, 11:59 PM"
+      access_code="sandbox">
+    <description>
+        This intentionally compact quiz exercises every supported question representation and answer-feedback mapping.
+        See <course-link type="page" id="diagram-gallery"/> for embedded generated media.
+    </description>
+    <questions>
+        <question id="context" type="text">
+            ## Question rendering
+
+            Markdown, `code`, a table, and math \(2^3=8\) should render in this text-only item.
+        </question>
+
+        <question id="true-false" type="true-false" answer="true" points="1"
+                  correct-comments="Correct." incorrect-comments="A dry run does not mutate Canvas.">
+            A dry run is the first live-target safety check.
+        </question>
+
+        <question id="multiple-choice" type="multiple-choice" points="1">
+            Which source value should remain stable when a display title changes?
+            <correct answer_comments="Resource references use this value.">The resource ID</correct>
+            <incorrect answer_comments="Titles are student-facing and may change.">The title</incorrect>
+            <incorrect>The due date</incorrect>
+        </question>
+
+        <question id="multiple-answers" type="multiple-answers" points="2">
+            Which are deployable content resources?
+            <correct answer_comments="Yes.">Page</correct>
+            <correct>Assignment</correct>
+            <incorrect answer_comments="This transforms source rather than creating an independent Canvas resource.">Include</incorrect>
+            <incorrect>Jinja loop</incorrect>
+        </question>
+
+        <question id="matching" type="matching" points="3">
+            Match each source tag to its purpose.
+            <pair left="page" right="Reference content"/>
+            <pair left="assignment" right="Submission or graded work"/>
+            <pair left="module" right="Navigation and sequence"/>
+            <distractors>
+                Source control branch
+                API credential
+            </distractors>
+        </question>
+
+        <question id="multiple-tf" type="multiple-tf">
+            Classify these statements.
+            <correct answer_comments="Stable IDs preserve identity.">IDs should remain stable.</correct>
+            <incorrect answer_comments="A sandbox is required.">Deploy the demo to production.</incorrect>
+            <correct>Review generated archives for leaked files.</correct>
+            <incorrect>Ignore parser warnings.</incorrect>
+        </question>
+
+        <question id="fill-one" type="fill-in-the-blank" points="1">
+            Preview deployment with [blank].
+            <correct text="--dry-run" answer_comments="Correct."/>
+        </question>
+
+        <question id="fill-many" type="fill-in-multiple-blanks" points="2">
+            Source [source] becomes Canvas [target].
+            <correct blank="source" text="content" answer_comments="Correct source term."/>
+            <correct blank="target" text="resources"/>
+        </question>
+
+        <question id="filled-answers" type="fill-in-multiple-blanks-filled-answers" points="2">
+            A [[module]] organizes [[items]].
+        </question>
+
+        <question id="essay" type="essay" points="3">
+            Describe one defect you would look for after deployment.
+        </question>
+
+        <question id="file-upload" type="file-upload">
+            Upload a screenshot from the sandbox if visual review finds a defect.
+        </question>
+
+        <question id="numerical-exact" type="numerical" numerical_answer_type="exact" points="1">
+            How many unchanged follow-up deployments should produce content changes?
+            <correct answer_exact="0" answer_error_margin="0" answer_comments="An unchanged deployment should be idempotent."/>
+        </question>
+
+        <question id="numerical-range" type="numerical" numerical_answer_type="range" points="1">
+            Enter a valid rating from 1 through 5.
+            <correct answer_range_start="1" answer_range_end="5" answer_comments="The value is in range."/>
+        </question>
+
+        <question id="numerical-precision" type="numerical" numerical_answer_type="precision" points="1">
+            Enter pi to five significant digits.
+            <correct answer_approximate="3.14159" answer_precision="5" answer_comments="Correct precision."/>
+        </question>
+    </questions>
+</quiz>

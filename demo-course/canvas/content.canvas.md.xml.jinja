@@ -1,0 +1,9 @@
+<content>
+    {% set unit_files = glob('unit*/content.canvas.md.xml.jinja') %}
+    {{ debug('Demo unit files: ' ~ unit_files | join(', ')) }}
+    {% for unit_file in unit_files %}
+        {% set unit_number = search('unit(\\d+)', unit_file).group(1) %}
+        <!-- Unit {{ unit_number }} from {{ parent(unit_file) }} -->
+        <include path="{{ unit_file }}" usediv="false"/>
+    {% endfor %}
+</content>

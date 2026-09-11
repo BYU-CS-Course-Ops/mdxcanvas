@@ -1,5 +1,6 @@
 {
   "CANVAS_API_URL" : "https://byu.instructure.com/",
   "CANVAS_COURSE_ID" : 20736,
-  "LOCAL_TIME_ZONE" : "America/Denver"
+  "LOCAL_TIME_ZONE" : "America/Denver",
+  "DEPLOY_ROOT" : ".."
 }
