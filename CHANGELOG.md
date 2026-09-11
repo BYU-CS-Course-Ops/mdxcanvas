@@ -2,6 +2,8 @@
 
 ## 0.8.0 - 2026-09-10
 
+While a major version increase (0.7 → 0.8), 0.8 does not introduce any breaking changes in syntax or behavior. It involved a significant re-write of the deployment machinery, so there is some risk of new bugs. Keep this in mind when upgrading from 0.7.x. 
+
 ### Added
 
 - Added deterministic deployment planning shared by dry-run and live deployment, with dependency-aware concurrent execution, cycle handling, progress logging, and partial-success reporting.
