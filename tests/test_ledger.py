@@ -7,7 +7,7 @@ import pytest
 import mdxcanvas
 
 
-CURRENT_VERSION = "0.8.1"
+CURRENT_VERSION = mdxcanvas.__version__
 
 
 def migrate_ledger(envelope):
