@@ -1,8 +1,10 @@
 import csv
 import json
 import re
+import traceback
 from pathlib import Path
 
+import jinja2.exceptions
 import markdowndata
 import yaml
 from jinja2 import Environment, FileSystemLoader
@@ -76,8 +78,20 @@ def _render_template(
     try:
         jj_template = env.from_string(template)
         return jj_template.render(context)
+    
     except Exception as ex:
-        raise Exception(f'Error processing {get_current_file_str()}', ex)
+        error_message = f'Error processing {get_current_file_str()}'
+        match = re.search(
+            r'File "<template>", line (\d+), in top-level template code',
+            traceback.format_exc(),
+        )
+        if match:
+            line_number = int(match.group(1))
+            template_lines = template.splitlines()
+            if 1 <= line_number <= len(template_lines):
+                error_message += f' (line {line_number}: {template_lines[line_number - 1].strip()})'
+
+        raise Exception(error_message, ex) from ex
 
 
 def process_jinja(

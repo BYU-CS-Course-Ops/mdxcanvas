@@ -3,6 +3,8 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile
 from textwrap import dedent
 
+import pytest
+
 from mdxcanvas.text_processing.jinja_processing import process_jinja
 
 
@@ -27,6 +29,15 @@ def test_split_list(tmp_path):
         parent_folder=tmp_path,
     )
     assert actual_output == expected_output
+
+
+def test_template_errors_include_the_failing_template_line(tmp_path):
+    template = "first\n{{ missing.attr }}\nthird"
+
+    with pytest.raises(Exception) as raised:
+        process_jinja(template, {}, tmp_path)
+
+    assert "line 2: {{ missing.attr }}" in str(raised.value)
 
 
 def test_glob():

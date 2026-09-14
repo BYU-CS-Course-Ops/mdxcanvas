@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.2 - 2026-09-14
+
+### Added
+
+- Exceptions originating in Jinja template rendering now give a best-effort attempt at including the template line causing the error. Helps with debugging.
+
+
 ## 0.8.1 - 2026-09-11
 
 ### Fixed
