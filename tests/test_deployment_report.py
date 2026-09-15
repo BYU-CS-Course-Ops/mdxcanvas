@@ -67,6 +67,21 @@ def test_errors_retain_bounded_useful_type_and_message_diagnostics():
     ]
     assert report.report["error"] == "\n".join(messages)
 
+    blocked_report = DeploymentReport()
+    blocked_report.add_deployment_error(
+        "deployment", RuntimeError("prerequisite action failed"),
+        {"resource_type": "page", "resource_id": "child"},
+        status="blocked", action="create",
+    )
+    blocked_report.add_deployment_error(
+        "deployment", RuntimeError("Canvas rejected the parent"),
+        {"resource_type": "page", "resource_id": "parent"},
+        status="failed", action="create",
+    )
+    assert blocked_report.report["error"] == "RuntimeError: Canvas rejected the parent"
+    assert blocked_report.report["deployment"]["errors"][0]["error"] == \
+        "RuntimeError: prerequisite action failed"
+
     long_report = DeploymentReport()
     long_report.add_error(RuntimeError("line one\n" + "x" * 500))
     error = long_report.report["processing"]["error"]

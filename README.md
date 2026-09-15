@@ -159,7 +159,7 @@ The JSON report has this shape:
 }
 ```
 
-The top-level `deployed_content`, `content_to_review`, and `error` fields retain the 0.7.x report contract for integrations. They are always present. `deployed_content` contains created and updated resources as `[resource_type, resource_id, url]`; `content_to_review` contains `[resource_type, name, url]`; and `error` combines processing and deployment errors into one string. A successful change requires manual review only when it has a `review` object; there is no separate boolean flag. A review URL may be `null`. The change's `url` describes the deployment outcome and may differ from the review URL.
+The top-level `deployed_content`, `content_to_review`, and `error` fields retain the 0.7.x report contract for integrations. They are always present. `deployed_content` contains created and updated resources as `[resource_type, resource_id, url]`; `content_to_review` contains `[resource_type, name, url]`; and `error` combines processing and actionable deployment errors into one string; blocked dependency errors remain in `deployment.errors` and are summarized for human output. A successful change requires manual review only when it has a `review` object; there is no separate boolean flag. A review URL may be `null`. The change's `url` describes the deployment outcome and may differ from the review URL.
 
 The review summary follows deterministic plan order. Every applicable change retains its own `review` object, while `content_to_review` retains only the first entry with the same resource type, name, and URL.
 

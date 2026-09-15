@@ -123,7 +123,11 @@ class DeploymentReport:
     def _derive_legacy_error(self):
         errors = [
             self.report["processing"]["error"],
-            *(item["error"] for item in self.report["deployment"]["errors"]),
+            *(
+                item["error"]
+                for item in self.report["deployment"]["errors"]
+                if item.get("status") != "blocked"
+            ),
         ]
         self.report["error"] = "\n".join(error for error in errors if error)
 
