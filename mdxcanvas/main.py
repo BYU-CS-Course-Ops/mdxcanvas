@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict
 
+from . import __version__
 from .our_logging import get_logger
 
 if TYPE_CHECKING:
@@ -215,10 +216,16 @@ def main(
 
 def entry():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--version", action="version", version=__version__)
+    parser.add_argument(
+        "--skilldir",
+        action="store_true",
+        help="Print the path to the packaged skills directory and exit.",
+    )
     # Time zone identifiers: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
     # Use the time zone of the canvas course
     parser.add_argument("--course-info", type=Path, default="canvas_course_info.json")
-    parser.add_argument("filename", type=Path)
+    parser.add_argument("filename", type=Path, nargs="?")
     parser.add_argument("--args", type=Path, default=None)
     parser.add_argument("--global-args", type=Path, default=None)
     parser.add_argument("--templates", nargs="+", type=Path, default=[])
@@ -232,6 +239,13 @@ def entry():
     )
     parser.add_argument('--output-file', type=str, default=None)
     args = parser.parse_args()
+
+    if args.skilldir:
+        print(Path(__file__).resolve().parent / "skills")
+        return
+
+    if args.filename is None:
+        parser.error("the following arguments are required: filename")
 
     api_token = os.environ.get("CANVAS_API_TOKEN")
     if api_token is None:

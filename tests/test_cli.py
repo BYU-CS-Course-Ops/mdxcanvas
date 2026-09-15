@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+import mdxcanvas
 from mdxcanvas.deployment_report import DeploymentReport
 from mdxcanvas.main import entry, main
 
@@ -32,6 +33,19 @@ def test_deployment_cli_exposes_new_cleanup_and_both_dry_run_spellings():
     assert "--dryrun" in result.stdout
     assert "--dry-run" in result.stdout
     assert "--cleanup" not in result.stdout
+    assert "skilldir" in result.stdout
+
+
+def test_version_flag_prints_version_without_runtime_configuration():
+    result = subprocess.run(
+        [sys.executable, "-m", "mdxcanvas.main", "--version"],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert result.stdout.strip() == mdxcanvas.__version__
+    assert result.stderr == ""
 
 
 def test_help_does_not_require_runtime_canvas_or_rendering_dependencies():
@@ -75,9 +89,9 @@ def test_newer_ledger_planning_error_causes_cli_exit_one(monkeypatch):
     assert raised.value.code == 1
 
 
-def test_skilldir_prints_packaged_skills_directory():
+def test_skilldir_flag_prints_packaged_skills_directory():
     result = subprocess.run(
-        [sys.executable, "-m", "mdxcanvas.cli", "skilldir"],
+        [sys.executable, "-m", "mdxcanvas.cli", "--skilldir"],
         check=True,
         capture_output=True,
         text=True,

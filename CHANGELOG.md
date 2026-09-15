@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.4 - 2026-09-15
+
+### Added
+
+- `mdxcanvas --version` prints the version
+- `mdxcanvas --skilldir` prints the location of installed `myteam`-compatible skills (these skills are agent-legible without `myteam`)
+
 ## 0.8.3 - 2026-09-15
 
 ### Fixed
