@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.5 - 2026-09-17
+
+### Fixed
+
+- `points` on a `file-upload` question is now honoured (previously only recognized `points_possible`). 
+
 ## 0.8.4 - 2026-09-15
 
 ### Added
