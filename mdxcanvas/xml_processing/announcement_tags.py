@@ -19,14 +19,15 @@ class AnnouncementTagProcessor:
             Attribute('is_announcement', True, parser=parse_bool),
             Attribute('publish_date', required=True, new_name='delayed_post_at', parser=parse_date,
                       default=datetime.now().isoformat()),
+            Attribute('is_section_specific', parser=parse_bool),
+            # Canvas takes specific_sections as a
+            # comma-separated list of section ids.
+            Attribute('specific_sections'),
         ]
 
         # https://canvas.instructure.com/doc/api/discussion_topics.html#method.discussion_topics.create
-        # delayed_post_at
-        # is_section_specific
         # permissions.reply
         # published
-        # specific_sections
 
         settings = {
             "type": "discussion_topics",
