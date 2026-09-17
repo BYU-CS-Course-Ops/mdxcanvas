@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.6 - 2026-09-17
+
+### Added
+
+- `is_section_specific` and `specific_sections` on `<announcement>` send an announcement to named sections instead of the whole course.
+
 ## 0.8.5 - 2026-09-17
 
 ### Fixed
