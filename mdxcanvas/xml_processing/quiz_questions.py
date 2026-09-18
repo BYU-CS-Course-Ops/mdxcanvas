@@ -404,7 +404,7 @@ def parse_file_upload_question(tag: Tag):
         "question_text": question_text,
         "question_type": 'file_upload_question',
     }
-    question.update(parse_settings(tag, default_fields))
+    question.update(parse_settings(tag, mostly_common_fields))
     return [question]
 
 

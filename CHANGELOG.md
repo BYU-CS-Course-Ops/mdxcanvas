@@ -1,10 +1,16 @@
 # Changelog
 
-## 0.8.5 - 2026-09-18
+## 0.8.6 - 2026-09-18
 
 ### Added
 
 - Programmatic support for skilldir, e.g. `from mdxcanvas import skilldir`
+
+## 0.8.5 - 2026-09-17
+
+### Fixed
+
+- `points` on a `file-upload` question is now honoured (previously only recognized `points_possible`). 
 
 ## 0.8.4 - 2026-09-15
 
