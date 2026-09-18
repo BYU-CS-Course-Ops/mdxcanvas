@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict
 
-from . import __version__
+from . import __version__, skilldir
 from .our_logging import get_logger
 
 if TYPE_CHECKING:
@@ -241,7 +241,7 @@ def entry():
     args = parser.parse_args()
 
     if args.skilldir:
-        print(Path(__file__).resolve().parent / "skills")
+        print(skilldir)
         return
 
     if args.filename is None:

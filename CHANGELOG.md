@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.5 - 2026-09-18
+
+### Added
+
+- Programmatic support for skilldir, e.g. `from mdxcanvas import skilldir`
+
 ## 0.8.4 - 2026-09-15
 
 ### Added

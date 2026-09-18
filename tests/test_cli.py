@@ -89,7 +89,10 @@ def test_newer_ledger_planning_error_causes_cli_exit_one(monkeypatch):
     assert raised.value.code == 1
 
 
-def test_skilldir_flag_prints_packaged_skills_directory():
+def test_skilldir_is_public_and_cli_uses_it():
+    assert mdxcanvas.skilldir == Path(__file__).parents[1] / "mdxcanvas" / "skills"
+    assert mdxcanvas.skilldir.is_dir()
+
     result = subprocess.run(
         [sys.executable, "-m", "mdxcanvas.cli", "--skilldir"],
         check=True,
@@ -97,6 +100,4 @@ def test_skilldir_flag_prints_packaged_skills_directory():
         text=True,
     )
 
-    skill_directory = Path(result.stdout.strip())
-    assert skill_directory == Path(__file__).parents[1] / "mdxcanvas" / "skills"
-    assert skill_directory.is_dir()
+    assert Path(result.stdout.strip()) == mdxcanvas.skilldir

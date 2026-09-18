@@ -1,4 +1,4 @@
-{{ read_file('~/.agents/general-agent-behavior.md') }}
+{{ read_file(rosters() + '/agents/general-agent-behavior.md') }}
 
 {{ read_file('dev/code-planning.md') }}
 
