@@ -529,7 +529,7 @@ The timestamp is replaced at deployment time in the configured course timezone. 
 
 ### Slides and diagrams
 
-`<quarto-slides>` can render and register a `.qmd` slide source. Treat source `.qmd` and Quarto configuration as authoring inputs, not generated HTML, JavaScript, CSS, or `*_files/` output.
+`<quarto-slides>` can render and register a `.qmd` slide source. Referenced local assets are tracked automatically. Use its comma-separated `dependencies` attribute for inputs that cannot be discovered statically, such as data read by executable code; paths and glob patterns are relative to the `.qmd` file. Treat source `.qmd` and Quarto configuration as authoring inputs, not generated HTML or `*_files/` output.
 
 If a course uses Mermaid or another specialized helper, preserve its established syntax and validate it with the target MDXCanvas version rather than inferring behavior from rendered output.
 

@@ -31,9 +31,10 @@ def _normalize_json_for_hashing(data: dict) -> str:
 def compute_md5(obj: CanvasResource | FileData | ZipFileData | MermaidData | NavigationData | QuartoSlidesData | SyllabusData,
                 deploy_root: Path) -> str:
     hashable = b""
-    for path in sorted(obj.get("checksum_paths", [])):
+    for path in sorted(set(obj.get("checksum_paths", []))):
+        hashable += unicodedata.normalize("NFC", path).encode() + b"\0"
         hashable += _compute_checksum_of_path(relative_to_abs(Path(path), deploy_root))
-    filtered = {key: value for key, value in obj.items() if key != "canvas_id"}
+    filtered = {key: value for key, value in obj.items() if key not in {"canvas_id", "checksum_paths"}}
     hashable += _normalize_json_for_hashing(filtered).encode()
     return hashlib.md5(hashable).hexdigest()
 

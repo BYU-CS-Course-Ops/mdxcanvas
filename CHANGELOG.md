@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.7 - 2026-09-21
+
+### Fixed
+
+- Quarto slides were rebuilding on every deploy regardless of what files were changed; now they only rebuild when files used by the slide deck are changed.
+
 ## 0.8.6 - 2026-09-18
 
 ### Added

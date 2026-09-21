@@ -34,6 +34,18 @@ Output filename for the generated slides HTML. If omitted, defaults to `<qmd-fil
 <quarto-slides path="slides/week1-intro.qmd" />
 ```
 
+### `dependencies` (optional)
+
+Comma-separated files or glob patterns, relative to the `.qmd` file, for inputs that cannot be discovered from the document. This is useful for data read by executable code.
+
+```xml
+<quarto-slides
+    path="slides/week1-intro.qmd"
+    dependencies="data/*.csv,images/generated/**" />
+```
+
+A pattern that matches no files is reported as an error.
+
 ### `canvas_folder` (optional)
 
 Canvas files folder where the rendered slide deck will be uploaded.
@@ -58,10 +70,12 @@ Availability dates for the uploaded file.
 When checksums are computed, MDXCanvas tracks:
 
 - the `.qmd` file itself
-- `_quarto.yaml` or `_quarto.yml` in the detected Quarto project root
+- local files referenced by Markdown, HTML, YAML frontmatter, CSS, and Quarto include shortcodes
+- files and glob patterns listed in `dependencies`
+- `_quarto.yaml` or `_quarto.yml` in the detected Quarto project root, including local files referenced by that configuration
 - the `_extensions/` folder in that same root (if present)
 
-This means updates to project config/extensions can trigger slide redeployments.
+Unrelated files elsewhere in the Quarto project do not trigger slide redeployments. Use `dependencies` for inputs that cannot be discovered statically, such as data files opened by executable code.
 
 ## Example
 
