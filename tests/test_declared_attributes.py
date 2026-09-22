@@ -44,23 +44,28 @@ def test_file_upload_question_defaults_to_one_point():
 
 
 def test_announcement_can_be_scoped_to_sections():
-    """is_section_specific and specific_sections were named in a comment and
-    declared nowhere, so setting them deployed a course-wide announcement that
-    looked scoped."""
+    """specific_sections was named in a comment and declared nowhere, so
+    setting it deployed a course-wide announcement that looked scoped.
+
+    Naming sections is the whole of it. Verified against a live course on
+    2026-09-22: an announcement carrying only specific_sections came back from
+    Canvas as is_section_specific=True with that section named, so the flag is
+    Canvas's answer rather than our input, and is deliberately not declared.
+    """
     from mdxcanvas.resources import ResourceManager
     from mdxcanvas.xml_processing.announcement_tags import AnnouncementTagProcessor
 
     resources = ResourceManager()
     AnnouncementTagProcessor(resources)(_tag("""
     <announcement id="a1" title="Sign-up" publish_date="Jan 5, 2026, 9:00 AM"
-                  is_section_specific="true" specific_sections="1234,5678">
+                  specific_sections="1234,5678">
         Please sign up.
     </announcement>
     """, 'announcement'))
 
     data = next(iter(resources.values()))['data']
-    assert data['is_section_specific'] is True
     assert data['specific_sections'] == '1234,5678'
+    assert 'is_section_specific' not in data
 
 
 def test_external_tool_module_items_are_not_supported():

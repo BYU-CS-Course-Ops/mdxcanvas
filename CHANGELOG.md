@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.9 - 2026-09-22
+
+### Changed
+
+- `specific_sections` alone scopes an announcement. `is_section_specific` is no longer accepted: Canvas derives it from the sections named, so sending it changed nothing.
+
 ## 0.8.8 - 2026-09-22
 
 ### Added

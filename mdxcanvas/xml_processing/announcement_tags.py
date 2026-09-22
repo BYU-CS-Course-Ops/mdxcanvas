@@ -19,9 +19,9 @@ class AnnouncementTagProcessor:
             Attribute('is_announcement', True, parser=parse_bool),
             Attribute('publish_date', required=True, new_name='delayed_post_at', parser=parse_date,
                       default=datetime.now().isoformat()),
-            Attribute('is_section_specific', parser=parse_bool),
-            # Canvas takes specific_sections as a
-            # comma-separated list of section ids.
+            # Canvas takes specific_sections as a comma-separated list of
+            # section ids, and sets is_section_specific from it. Sending the
+            # flag as well changes nothing, so it is not declared.
             Attribute('specific_sections'),
         ]
 

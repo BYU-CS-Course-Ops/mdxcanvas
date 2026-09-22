@@ -16,7 +16,9 @@ Use this reference when working with:
 ## Non-Negotiables
 
 - Use `MMM d, yyyy, h:mm AM/PM` for `publish_date`.
-- `specific_sections` does nothing unless `is_section_specific` is `true`.
+- `specific_sections` is what scopes an announcement, and naming sections is all it
+  takes. Canvas sets `is_section_specific` itself; that attribute is not supported
+  here, and setting it will be reported as an unprocessed field.
 
 ---
 
@@ -27,8 +29,7 @@ Use this reference when working with:
 | `id`                  | yes      | Stable identifier                                                             |
 | `title`               | yes      | Announcement title shown in Canvas                                            |
 | `publish_date`        | no       | When the announcement publishes: `MMM d, yyyy, h:mm AM/PM`. Defaults to now    |
-| `is_section_specific` | no       | `true` to send to named sections instead of the whole course                   |
-| `specific_sections`   | no       | Canvas section IDs to send to, comma separated                                 |
+| `specific_sections`   | no       | Canvas section IDs to send to, comma separated. Scopes the announcement |
 
 ---
 
@@ -58,7 +59,6 @@ Scoped to two sections:
 <announcement id="lab-swap"
               title="Lab sections swap rooms this week"
               publish_date="Jan 20, 2025, 8:00 AM"
-              is_section_specific="true"
               specific_sections="37341,40884">
     Sections 002 and 004 meet in the other room on Thursday.
 </announcement>
