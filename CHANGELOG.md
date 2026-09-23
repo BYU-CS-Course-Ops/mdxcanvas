@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.11 - 2026-09-23
+
+### Fixed
+
+- `group_category` on an `<assignment>` now reaches Canvas. The name was passed to an API that takes `group_category_id` and ignores anything else, so the attribute was accepted, discarded, and the assignment deployed ungrouped. A name matching no category is now an error rather than a silent no-op.
+
 ## 0.8.10 - 2026-09-22
 
 ### Changed
