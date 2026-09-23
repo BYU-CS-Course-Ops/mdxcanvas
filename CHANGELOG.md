@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.10 - 2026-09-22
+
+### Changed
+
+- An attribute no `Attribute(...)` declares now fails the deploy instead of logging a warning. The error names the attribute and lists what the tag accepts. A course relying on an attribute being silently discarded will need to remove it.
+
+### Fixed
+
+- `answer_comments` on a `<pair>` in a matching question no longer reports as unprocessed. It was read correctly but never declared.
+
 ## 0.8.8 - 2026-09-22
 
 ### Added
