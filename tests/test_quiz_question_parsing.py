@@ -311,8 +311,13 @@ def test_answer_comments_do_not_warn_about_unprocessed_fields(parser, xml, caplo
     assert _unprocessed_field_warnings(caplog) == []
 
 
-def test_genuinely_unknown_answer_attributes_still_warn(caplog):
-    """Guards the test above: it must fail if the warning is ever silenced wholesale."""
+def test_genuinely_unknown_answer_attributes_are_rejected():
+    """Guards the test above: it must fail if unknown attributes stop being caught.
+
+    The message names the attribute and lists what the tag accepts, because the
+    author reading it has to tell a typo apart from an attribute mdxcanvas does
+    not support.
+    """
     question = _parse_question("""
     <question id="q1" type="fill-in-the-blank">
         The capital of France is [blank].
@@ -320,10 +325,15 @@ def test_genuinely_unknown_answer_attributes_still_warn(caplog):
     </question>
     """)
 
-    with caplog.at_level(logging.WARNING, logger='MDXCANVAS'):
+    with pytest.raises(ValueError) as caught:
         parse_fill_in_the_blank_question(question)
 
-    warnings = _unprocessed_field_warnings(caplog)
-    assert len(warnings) == 1
-    assert 'not_a_real_attribute' in warnings[0]
-    assert 'answer_comments' not in warnings[0]
+    message = str(caught.value)
+    named, accepted = message.split('accepted here:')
+    # Only the part before " on <tag>", since the message quotes the tag itself
+    # and the tag naturally contains every attribute including the good ones.
+    reported = named.split(' on ')[0]
+    assert "Unknown attribute 'not_a_real_attribute'" in reported
+    # answer_comments is read elsewhere, so it is accepted rather than unknown.
+    assert 'answer_comments' not in reported
+    assert 'answer_comments' in accepted

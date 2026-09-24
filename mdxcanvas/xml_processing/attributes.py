@@ -159,9 +159,14 @@ def parse_settings(tag: Tag, attributes: list[Attribute]):
             raise Exception(
                 f'Required field "{attribute.name}" missing from {tag.name} tag {format_tag(tag)}\n @ {get_tag_path(tag)} in {get_file_path(tag)}')
 
-    for key in tag.attrs:
-        if key not in processed_fields:
-            logger.warning(f'Unprocessed_fields field "{key}" @ {get_tag_path(tag)}')
+    if unknown := sorted(k for k in tag.attrs if k not in processed_fields):
+        raise ValueError(
+            f'Unknown attribute{"s" if len(unknown) > 1 else ""} '
+            f'{", ".join(repr(k) for k in unknown)} on {tag.name} tag '
+            f'{format_tag(tag)}\n'
+            f' @ {get_tag_path(tag)} in {get_file_path(tag)}\n'
+            f' accepted here: {", ".join(sorted(processed_fields))}'
+        )
 
     return settings
 

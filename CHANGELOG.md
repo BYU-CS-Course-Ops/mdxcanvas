@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.9 - 2026-09-22
+
+### Changed
+
+- Tag attribute parsing is now strict. Unknown attributes used to log a warning, but will now raise a `ValueError`. Courses with misnamed or hallucinated tag attributes will no longer deploy.
+
+### Fixed
+
+- `answer_comments` on a `<pair>` in a matching question no longer reports as unprocessed. It was read correctly but never declared.
+
 ## 0.8.8 - 2026-09-22
 
 ### Added
