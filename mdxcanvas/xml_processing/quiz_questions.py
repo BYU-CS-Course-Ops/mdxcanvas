@@ -170,7 +170,10 @@ def parse_matching_question(tag: Tag):
     distractors = '\n'.join(line for line in distractors.splitlines() if line.split())
     parsed_pairs = []
     for pair_tag in pairs:
-        pair = parse_settings(pair_tag, [left_field, right_field])
+        # _add_answer_comments reads answer_comments straight off the tag, so it
+        # is declared here only to record that the tag accepts it.
+        pair = parse_settings(pair_tag,
+                              [left_field, right_field, ANSWER_COMMENTS_ATTRIBUTE])
         parsed_pairs.append(_add_answer_comments({
             "answer_match_left": pair['left'],
             "answer_match_right": pair['right'],

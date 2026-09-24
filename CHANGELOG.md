@@ -1,10 +1,20 @@
 # Changelog
 
+## 0.8.10 - 2026-09-22
+
+### Changed
+
+- Remove `is_section_specific` attribute from `announcment` tag; this field is derived from the presence of the `specific_sections` attribute.
+
 ## 0.8.9 - 2026-09-22
 
 ### Changed
 
-- `specific_sections` alone scopes an announcement. `is_section_specific` is no longer accepted: Canvas derives it from the sections named, so sending it changed nothing.
+- Tag attribute parsing is now strict. Unknown attributes used to log a warning, but will now raise a `ValueError`. Courses with misnamed or hallucinated tag attributes will no longer deploy.
+
+### Fixed
+
+- `answer_comments` on a `<pair>` in a matching question no longer reports as unprocessed. It was read correctly but never declared.
 
 ## 0.8.8 - 2026-09-22
 
