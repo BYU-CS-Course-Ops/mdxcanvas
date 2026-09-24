@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.10 - 2026-09-22
+
+### Changed
+
+- Remove `is_section_specific` attribute from `announcment` tag; this field is derived from the presence of the `specific_sections` attribute.
+
 ## 0.8.9 - 2026-09-22
 
 ### Changed
