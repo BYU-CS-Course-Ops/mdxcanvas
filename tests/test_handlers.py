@@ -14,6 +14,7 @@ BUILTIN_TYPES = {
     "assignment_group",
     "course_settings",
     "file",
+    "group_category",
     "mermaid",
     "module",
     "module_item",

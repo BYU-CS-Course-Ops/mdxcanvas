@@ -1,10 +1,14 @@
 # Changelog
 
-## 0.8.11 - 2026-09-23
+## 0.8.11 - 2026-09-24
 
-### Fixed
+### Added
 
-- `group_category` on an `<assignment>` now reaches Canvas. The name was passed to an API that takes `group_category_id` and ignores anything else, so the attribute was accepted, discarded, and the assignment deployed ungrouped. A name matching no category is now an error rather than a silent no-op.
+- `<group-category>` declares a student group category, with `name`, `self_signup`, `group_limit` and `auto_leader`. The groups inside it and their membership stay in Canvas.
+
+### Changed
+
+- `group_category` on an `<assignment>` now names a declared `<group-category>` by id, the way `assignment_group` already worked. It previously carried a category name to an API that takes `group_category_id` and ignores anything else, so the attribute was discarded and the assignment deployed ungrouped.
 
 ## 0.8.10 - 2026-09-22
 

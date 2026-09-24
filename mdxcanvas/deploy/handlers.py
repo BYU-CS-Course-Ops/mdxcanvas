@@ -9,7 +9,7 @@ from .announcement import deploy_announcement
 from .assignment import deploy_assignment
 from .course_settings import deploy_settings
 from .file import deploy_file
-from .group import deploy_group
+from .group import deploy_group, deploy_group_category
 from .mermaid import deploy_mermaid
 from .module import deploy_module, deploy_module_item, get_module_item
 from .navigation import deploy_navigation
@@ -90,6 +90,7 @@ def build_builtin_handlers() -> dict[str, HandlerSpec]:
         "announcement": deploy_announcement,
         "assignment": deploy_assignment,
         "assignment_group": deploy_group,
+        "group_category": deploy_group_category,
         "course_settings": deploy_settings,
         "file": deploy_file,
         "mermaid": deploy_mermaid,
