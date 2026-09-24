@@ -4,11 +4,11 @@
 
 ### Added
 
-- `<group-category>` declares a student group category, with `name`, `self_signup`, `group_limit` and `auto_leader`. The groups inside it and their membership stay in Canvas.
+- `<group-category>` declares a student group category, with `name`, `self_signup`, `group_limit` and `auto_leader`. Groups and their membership are still managed in Canvas.
 
 ### Changed
 
-- `group_category` on an `<assignment>` now names a declared `<group-category>` by id, the way `assignment_group` already worked. It previously carried a category name to an API that takes `group_category_id` and ignores anything else, so the attribute was discarded and the assignment deployed ungrouped.
+- `group_category` on an `<assignment>` now references a declared `<group-category>` by id, matching how `assignment_group` works. Courses naming a category by its Canvas title must declare it instead; the name was previously discarded and the assignment deployed ungrouped.
 
 ## 0.8.10 - 2026-09-22
 
