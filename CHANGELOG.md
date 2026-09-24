@@ -4,7 +4,7 @@
 
 ### Changed
 
-- An attribute no `Attribute(...)` declares now fails the deploy instead of logging a warning. The error names the attribute and lists what the tag accepts. A course relying on an attribute being silently discarded will need to remove it.
+- Tag attribute parsing is now strict. Unknown attributes used to log a warning, but will now raise a `ValueError`. Courses with misnamed or hallucinated tag attributes will no longer deploy.
 
 ### Fixed
 
