@@ -6,9 +6,6 @@ from ..resources import AssignmentInfo
 
 
 def deploy_assignment(course: Course, assignment_info: dict, _: Path) -> tuple[AssignmentInfo, None]:
-    # TODO - update group_category (name) to group_category_id
-    #  Is this necessary to support?
-
     if assignment_id := assignment_info.get('canvas_id'):
         canvas_assignment = course.get_assignment(assignment_id)
         canvas_assignment.edit(assignment=assignment_info)

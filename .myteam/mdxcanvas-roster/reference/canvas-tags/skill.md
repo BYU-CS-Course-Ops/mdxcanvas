@@ -19,6 +19,7 @@ Use this reference when looking up syntax, attributes, or examples for any Canva
 | Module / Item | `module/skill.md`       |
 | Announcement  | `announcement/skill.md` |
 | Syllabus      | `syllabus/skill.md`     |
+| Group category| `group-category/skill.md` |
 
 ---
 
@@ -34,6 +35,7 @@ Use this reference when looking up syntax, attributes, or examples for any Canva
 | `<syllabus>`          | Course syllabus     | (no attributes — wraps content)                                              |
 | `<announcement>`      | Course announcement | `title`, `published_at`                                                      |
 | `<assignment-groups>` | Grade groups        | contains `<group name="..." weight="..."/>` children                         |
+| `<group-category>`    | Student group set   | `id`, `name`, `self_signup`, `group_limit`, `auto_leader`                    |
 
 ---
 

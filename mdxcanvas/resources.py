@@ -51,6 +51,10 @@ class AssignmentGroupInfo(ResourceInfo):
     id: str
 
 
+class GroupCategoryInfo(ResourceInfo):
+    id: str
+
+
 class ModuleInfo(ResourceInfo):
     id: str
     title: str  # for course-link

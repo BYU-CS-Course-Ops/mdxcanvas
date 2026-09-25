@@ -33,7 +33,8 @@ class AssignmentTagProcessor:
             Attribute('grader_count'),
             Attribute('grader_names_visible_to_final_grader', False, parse_bool),
             Attribute('graders_anonymous_to_graders', False, parse_bool),
-            Attribute('group_category'),
+            Attribute('group_category', parser=make_id_parser('group_category'),
+                      new_name='group_category_id'),
             Attribute('hide_in_gradebook', False, parse_bool),
             Attribute('integration_data'),  # TODO - keep?
             Attribute('moderated_grading', False, parse_bool),
