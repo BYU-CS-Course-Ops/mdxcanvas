@@ -6,6 +6,29 @@ from bs4.element import Tag
 from .processing_context import get_current_file_str
 
 
+class MissingFilesError(FileNotFoundError):
+    """
+    Every file the preprocessing pass could not find, not only the first.
+
+    A template naming several missing files is usually one mistake, such as a
+    folder that moved and left its references behind. Stopping at the first
+    hides the rest, so each one costs its own run to discover.
+
+    Subclasses FileNotFoundError so callers already catching that catch this.
+    """
+
+    def __init__(self, messages: list[str]):
+        # One shared file included by many pages reports once per page, word
+        # for word the same each time. Seven copies of a line read as seven
+        # problems and bury the others. Order is kept, so the list still
+        # follows the document.
+        self.messages = list(dict.fromkeys(messages))
+        noun = "file" if len(self.messages) == 1 else "files"
+        super().__init__(
+            f"{len(self.messages)} missing {noun}:\n\n" + "\n\n".join(self.messages)
+        )
+
+
 @no_type_check
 def get_tag_source_file(tag: Tag) -> Path | None:
     if tag and (source := tag.get('data-source')):

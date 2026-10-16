@@ -7,6 +7,7 @@ from .mermaid_preprocessor import make_mermaid_preprocessor
 from .navigation_tags import NavigationTagProcessor
 from .quarto_slides_preprocessor import make_quarto_slides_preprocessor
 from .syllabus_tags import SyllabusTagProcessor
+from ..error_helpers import MissingFilesError
 from ..resources import ResourceManager
 from ..util import parse_soup_from_xml
 from ..xml_processing.assignment_group_tags import AssignmentGroupTagProcessor
@@ -27,6 +28,35 @@ def _walk_xml(tag, tag_processors):
             processor = tag_processors[child.name]
             processor(child)
         _walk_xml(child, tag_processors)
+
+
+def _walk_xml_gathering_missing_files(tag, tag_processors, missing: list[str]):
+    """
+    Walk as _walk_xml does, but survive a missing file and keep looking.
+
+    Only FileNotFoundError is gathered. Anything else means the template could
+    not be understood rather than that a file is absent, and there is no reason
+    to believe the rest of the walk is meaningful, so it propagates at once.
+
+    A tag whose processor raised is left as it is and not descended into. The
+    content it would have pulled in is not there to examine, and the caller
+    raises once the walk finishes, so the half-built tree is never used.
+    """
+    if not hasattr(tag, 'children'):
+        return
+    for child in tag.children:
+        if hasattr(child, 'name') and child.name in tag_processors:
+            processor = tag_processors[child.name]
+            try:
+                processor(child)
+            except MissingFilesError as e:
+                # Raised by a nested preprocess_xml: one file per entry already.
+                missing.extend(e.messages)
+                continue
+            except FileNotFoundError as e:
+                missing.append(str(e))
+                continue
+        _walk_xml_gathering_missing_files(child, tag_processors, missing)
 
 
 def preprocess_xml(
@@ -56,7 +86,11 @@ def preprocess_xml(
     }
 
     soup = parse_soup_from_xml(text)
-    _walk_xml(soup, tag_preprocessors)
+
+    missing: list[str] = []
+    _walk_xml_gathering_missing_files(soup, tag_preprocessors, missing)
+    if missing:
+        raise MissingFilesError(missing)
 
     return str(soup)
 
