@@ -20,27 +20,20 @@ from ..xml_processing.tag_preprocessors import make_image_preprocessor, make_fil
     make_course_settings_preprocessor
 
 
-def _walk_xml(tag, tag_processors):
-    if not hasattr(tag, 'children'):
-        return
-    for child in tag.children:
-        if hasattr(child, 'name') and child.name in tag_processors:
-            processor = tag_processors[child.name]
-            processor(child)
-        _walk_xml(child, tag_processors)
-
-
-def _walk_xml_gathering_missing_files(tag, tag_processors, missing: list[str]):
+def _walk_xml(tag, tag_processors, missing: list[str] | None = None):
     """
-    Walk as _walk_xml does, but survive a missing file and keep looking.
+    Call each tag's processor, then descend into its children.
+
+    Given `missing`, a FileNotFoundError from a processor is recorded there
+    and the walk continues, so one run names every absent file rather than
+    only the first. That tag is left as it is and not descended into, since
+    the content it would have pulled in is not there to examine; the caller
+    raises once the walk finishes, so the half-built tree is never used.
 
     Only FileNotFoundError is gathered. Anything else means the template could
-    not be understood rather than that a file is absent, and there is no reason
-    to believe the rest of the walk is meaningful, so it propagates at once.
-
-    A tag whose processor raised is left as it is and not descended into. The
-    content it would have pulled in is not there to examine, and the caller
-    raises once the walk finishes, so the half-built tree is never used.
+    not be understood rather than that a file is absent, and there is no
+    reason to believe the rest of the walk is meaningful, so it propagates at
+    once. Without `missing`, so does a FileNotFoundError.
     """
     if not hasattr(tag, 'children'):
         return
@@ -50,13 +43,17 @@ def _walk_xml_gathering_missing_files(tag, tag_processors, missing: list[str]):
             try:
                 processor(child)
             except MissingFilesError as e:
+                if missing is None:
+                    raise
                 # Raised by a nested preprocess_xml: one file per entry already.
                 missing.extend(e.messages)
                 continue
             except FileNotFoundError as e:
+                if missing is None:
+                    raise
                 missing.append(str(e))
                 continue
-        _walk_xml_gathering_missing_files(child, tag_processors, missing)
+        _walk_xml(child, tag_processors, missing)
 
 
 def preprocess_xml(
@@ -88,7 +85,7 @@ def preprocess_xml(
     soup = parse_soup_from_xml(text)
 
     missing: list[str] = []
-    _walk_xml_gathering_missing_files(soup, tag_preprocessors, missing)
+    _walk_xml(soup, tag_preprocessors, missing)
     if missing:
         raise MissingFilesError(missing)
 
