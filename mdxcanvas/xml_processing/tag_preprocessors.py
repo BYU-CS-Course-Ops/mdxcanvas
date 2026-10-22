@@ -4,7 +4,7 @@ from typing import Callable
 
 from bs4.element import Tag
 
-from ..error_helpers import format_tag, get_file_path, validate_required_attribute
+from ..error_helpers import MissingFilesError, format_tag, get_file_path, validate_required_attribute
 from ..our_logging import get_logger
 from ..processing_context import FileContext, get_current_file_str
 from ..resources import ResourceManager, FileData, StrLike, ZipFileData, CanvasResource, get_key
@@ -28,7 +28,7 @@ def make_course_settings_preprocessor(deploy_root: Path, parent: Path, resources
         if image_path:
             image_path = (parent / image_path).resolve().absolute()
             if not image_path.is_file():
-                raise ValueError(
+                raise FileNotFoundError(
                     f"Course image file not found @ {format_tag(tag)}\n  Image path: {image_path}\n  in {get_file_path(tag)}")
 
             # noinspection PyTypeChecker
@@ -73,7 +73,7 @@ def make_image_preprocessor(deploy_root: Path, parent: Path, resources: Resource
         # Assume it's a local file
         src_path = (parent / src).resolve().absolute()
         if not src_path.is_file():
-            raise ValueError(
+            raise FileNotFoundError(
                 f"Image file not found @ {format_tag(tag)}\n  File path: {src_path}\n  in {get_file_path(tag)}")
         src = src_path
 
@@ -116,7 +116,7 @@ def make_file_preprocessor(deploy_root: Path, parent: Path, resources: ResourceM
         attrs = tag.attrs
         path = (parent / path_value).resolve().absolute()
         if not path.is_file():
-            raise ValueError(f"File not found @ {format_tag(tag)}\n  File path: {path}\n  in {get_file_path(tag)}")
+            raise FileNotFoundError(f"File not found @ {format_tag(tag)}\n  File path: {path}\n  in {get_file_path(tag)}")
         # Only pop the path after validation succeeds
         attrs.pop('path')
 
@@ -205,7 +205,7 @@ def make_zip_preprocessor(deploy_root: Path, parent: Path, resources: ResourceMa
 
         content_folder_path = (parent / content_folder).resolve().absolute()
         if not content_folder_path.exists():
-            raise ValueError(
+            raise FileNotFoundError(
                 f"Folder not found @ {format_tag(tag)}\n  Folder path: {content_folder_path}\n  in {get_file_path(tag)}")
 
         additional_files = None
@@ -401,6 +401,11 @@ def make_markdown_page_preprocessor(
 
         try:
             include_processor(include_tag)  # Replaces include_tag with new content
+        except MissingFilesError:
+            # The page itself was found; these came from inside it, and each
+            # already names the tag and file it belongs to. Restating this
+            # page over the top of them would bury what they say.
+            raise
         except FileNotFoundError as e:
             raise FileNotFoundError(f"File not found @ {format_tag(tag)}\n  in {get_file_path(tag)}") from e
 

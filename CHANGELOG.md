@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.12 - 2026-10-21
+
+### Fixed
+
+- A deploy that cannot find referenced files now reports all of them at once rather than stopping at the first. A file included by several pages is reported once.
+
+### Changed
+
+- `img`, `file`, `zip` and `course-settings` raise `FileNotFoundError` for a missing file, matching `include` and `md-page`. Code catching `ValueError` on those tags must catch `FileNotFoundError` instead.
+
 ## 0.8.11 - 2026-09-24
 
 ### Added
