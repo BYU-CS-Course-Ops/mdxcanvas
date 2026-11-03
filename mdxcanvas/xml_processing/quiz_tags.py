@@ -2,7 +2,15 @@ from typing import Callable
 
 from bs4.element import Tag
 
-from .attributes import Attribute, parse_int, parse_bool, parse_date, parse_settings, make_id_parser
+from .attributes import (
+    Attribute,
+    parse_float,
+    parse_int,
+    parse_bool,
+    parse_date,
+    parse_settings,
+    make_id_parser,
+)
 from ..util import retrieve_contents
 from .quiz_questions import parse_text_question, parse_true_false_question, parse_multiple_choice_question, \
     parse_multiple_answers_question, parse_matching_question, parse_multiple_true_false_question, \
@@ -91,7 +99,7 @@ class QuizTagProcessor:
             Attribute('published', parser=parse_bool),
             Attribute('one_time_results', False, parse_bool),
             Attribute('only_visible_to_overrides', parser=parse_bool),
-            Attribute('points_possible', parser=parse_int)
+            Attribute('points_possible', parser=parse_float)
         ]
 
         return parse_settings(settings_tag, fields)
