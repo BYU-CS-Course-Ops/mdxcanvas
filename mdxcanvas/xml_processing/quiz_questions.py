@@ -3,7 +3,13 @@ import string
 
 from bs4.element import Tag
 
-from .attributes import parse_settings, Attribute, parse_bool, parse_int, parse_children_tag_contents
+from .attributes import (
+    parse_settings,
+    Attribute,
+    parse_bool,
+    parse_float,
+    parse_children_tag_contents,
+)
 from ..util import retrieve_contents
 from ..resources import StrLike
 
@@ -30,7 +36,7 @@ common_fields = [
 ]
 
 mostly_common_fields = [
-    Attribute('points', 1, parse_int, 'points_possible'),
+    Attribute('points', 1, parse_float, 'points_possible'),
     *common_fields
 ]
 
@@ -185,7 +191,7 @@ def parse_matching_question(tag: Tag):
     question.update({
         "question_text": retrieve_contents(tag, question_children_names + ['pair', 'distractors']),
         "question_type": 'matching_question',
-        "points_possible": parse_int(tag.get('points') or len(pairs)),
+        "points_possible": parse_float(tag.get('points') or len(pairs)),
         "answers": parsed_pairs,
         "matching_answer_incorrect_matches": distractors
     })
@@ -214,22 +220,22 @@ def parse_multiple_true_false_question(tag: Tag):
         "question_text": retrieve_contents(tag, question_children_names),
         "question_type": 'text_only_question',
     }
-    header.update(parse_settings(tag, default_fields))
+    header.update(parse_settings(tag, [
+        *default_fields,
+        Attribute('points', new_name='points_possible', ignore=True),
+    ]))
     resulting_questions.append(header)
 
     answers = tag.find_all(re.compile(r'correct|incorrect'))
 
     question_attributes = [
-        Attribute('points', default=len(answers), parser=parse_int, new_name='points_possible'),
+        Attribute('points', default=len(answers), parser=parse_float, new_name='points_possible'),
     ]
     settings = parse_settings(tag, question_attributes + common_fields)
     total_points = settings['points_possible']
 
-    # Distribute points evenly among the questions
-    points_per_question = round(total_points // len(answers), 2)
-    error = total_points - points_per_question * len(answers)
-    num_to_change = round(error * 100)
-    amount = 0.01 if error > 0 else -0.01
+    # Distribute the total evenly among the generated true/false questions.
+    points_per_question = total_points / len(answers)
 
     qid = settings['question_id']
     for index, child in enumerate(answers):
@@ -237,7 +243,7 @@ def parse_multiple_true_false_question(tag: Tag):
             "question_text": retrieve_contents(child),
             "question_type": 'true_false_question',
             "question_id": f'{qid}_{index}',
-            "points_possible": points_per_question + amount if index < num_to_change else points_per_question,
+            "points_possible": points_per_question,
             "answers": [
                 {
                     "answer_text": "True",
@@ -320,7 +326,7 @@ def parse_fill_in_multiple_blanks_filled_answers(tag: Tag):
     }
 
     question_attributes = [
-        Attribute('points', default=len(answers), parser=parse_int, new_name='points_possible'),
+        Attribute('points', default=len(answers), parser=parse_float, new_name='points_possible'),
     ]
     settings = parse_settings(tag, question_attributes + common_fields)
     question.update(settings)
@@ -385,7 +391,7 @@ def parse_fill_in_multiple_blanks_question(tag: Tag):
     }
 
     question_attributes = [
-        Attribute('points', default=len(answers), parser=parse_int, new_name='points_possible'),
+        Attribute('points', default=len(answers), parser=parse_float, new_name='points_possible'),
     ]
     question.update(parse_settings(tag, question_attributes + common_fields))
     return [question]

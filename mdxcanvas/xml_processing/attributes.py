@@ -1,4 +1,5 @@
 import dataclasses
+import math
 from datetime import datetime
 from typing import Callable, Any
 
@@ -59,6 +60,13 @@ def make_id_list_parser(resource_type: str):
 
 def parse_int(text):
     return int(text)
+
+
+def parse_float(text):
+    value = float(text)
+    if not math.isfinite(value):
+        raise ValueError("Value must be finite")
+    return value
 
 
 def parse_bool(text):

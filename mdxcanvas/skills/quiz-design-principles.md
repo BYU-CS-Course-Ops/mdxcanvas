@@ -55,7 +55,7 @@ The authoring contract requires a non-empty `<questions>` block. Some empty-ques
 | `allowed_attempts` | Integer attempt count; `-1` means unlimited. |
 | `scoring_policy` | `keep_highest`, `keep_latest`, or `keep_average`. |
 | `access_code` | Passcode required to open the quiz. |
-| `points_possible` | Explicit quiz total. If used, keep it consistent with the represented question scores. |
+| `points_possible` | Explicit numeric quiz total; integer and decimal values are accepted. If used, keep it consistent with the represented question scores. |
 | `published` | Boolean publication state. |
 | `show_correct_answers` | Boolean controlling whether correct answers can be shown. |
 | `show_correct_answers_last_attempt` | Boolean restricting correct-answer display to the final attempt. |
@@ -172,7 +172,7 @@ XML still applies around the Markdown. Escape XML-sensitive attribute characters
 
 ## 4. Supported question types
 
-Every `<question>` requires `id` and `type`. Most answer-bearing types accept `points` or `points_possible`; these names map to the same Canvas field. Use `points`, not `points_possible`, for `matching`: the current implementation overwrites a matching question's `points_possible` value with its pair count unless `points` is present. The current implementation does not parse point attributes on `text` or `file-upload`.
+Every `<question>` requires `id` and `type`. Question point values may be finite decimals as well as integers. Most answer-bearing types accept `points` or `points_possible`; these names map to the same Canvas field. Use `points`, not `points_possible`, for `matching`: the current implementation overwrites a matching question's `points_possible` value with its pair count unless `points` is present. The current implementation does not parse point attributes on `text` or `file-upload`.
 
 ### `text`: shared material or a section heading
 

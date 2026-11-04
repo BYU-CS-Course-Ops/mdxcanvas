@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.13 - 2026-11-03
+
+### Added
+
+- Quiz question and quiz-total `points` values now accept finite decimal numbers.
+  Multiple-true-false totals are distributed evenly across their generated questions.
+
 ## 0.8.12 - 2026-10-21
 
 ### Fixed
