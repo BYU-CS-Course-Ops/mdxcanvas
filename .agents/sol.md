@@ -1,6 +1,7 @@
 ---
 type: workflow
-model: gpt-5.6-sol
+model: gpt-6.1-sol
+system_prompt: true
 ---
 
 {{ read_file('agent-body.md') }}
