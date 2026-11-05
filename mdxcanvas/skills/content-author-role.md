@@ -142,9 +142,13 @@ Module `content_id`, `<course-link id>`, assignment-group references, prerequisi
 
 ### Identity rules
 
-As an authoring rule, every MDXCanvas tag must carry an explicit, unique, stable `id` unless it belongs to an exception category below. This rule applies to MDXCanvas tags, not ordinary HTML. Tags that require `id` include `<group>`, `<assignment>`, `<quiz>`, `<question>`, `<page>`, `<md-page>`, `<module>`, `<item>`, `<announcement>`, and `<course-link>` (whose `id` identifies its target rather than the link itself).
+Follow the parser's identity requirements rather than requiring an explicit `id` on every tag. Tags that require `id` include `<group>`, `<assignment>`, `<quiz>`, `<question>`, `<page>`, `<md-page>`, `<module>`, and `<announcement>`. `<course-link>` requires `id` to identify its target rather than the link itself. Module-item requirements depend on type:
 
-The exceptions are tags for which an authored resource ID is not meaningful or supported:
+- `page`, `assignment`, `quiz`, and `file` items require `content_id`; `id` is optional and defaults to `content_id`.
+- `subheader`, `externalurl`, and `syllabus` items require an explicit `id`.
+- All module-item identities are namespaced by the module: `<module id>|<item id or content_id>`.
+
+Keep explicit and derived identities stable and unique within their resource scope. Other identity categories are:
 
 - `<syllabus>` has the fixed identity `syllabus`;
 - `<navigation>` has the fixed identity `navigation`;
@@ -154,7 +158,7 @@ The exceptions are tags for which an authored resource ID is not meaningful or s
 - `<include>` and `<timestamp>` are transformations rather than independently managed resources; and
 - structural, content, and ordinary HTML tags such as `<course>`, `<content>`, `<div>`, `<assignment-groups>`, `<description>`, `<questions>`, `<overrides>`, `<correct>`, `<incorrect>`, `<pair>`, and `<distractors>` do not have independent resource identity.
 
-Do not add an unsupported `id` to an exception merely to satisfy the general rule; unknown attributes may be ignored. For generated-identity assets, treat the filename, `name`, or other derivation input as a stable identity contract.
+Do not add an unsupported `id` to a tag that does not accept it. For generated-identity assets, treat the filename, `name`, or other derivation input as a stable identity contract.
 
 1. Do not derive a long-lived ID from mutable prose when an existing semantic ID can be preserved.
 2. Never change the title of a legacy resource that lacks an explicit ID in the same update that introduces its ID.
@@ -162,7 +166,7 @@ Do not add an unsupported `id` to an exception merely to satisfy the general rul
 4. Update `content_id`, `<course-link id>`, prerequisites, `never_drop`, and macros only when the target **ID** changes. A display-title-only rename should not alter references.
 5. Treat path-, filename-, heading-, and regex-derived IDs as public interfaces. Moving or renaming source can create a new Canvas resource and orphan the old one.
 6. Check generated ID uniqueness. Duplicate `(resource type, id)` pairs may overwrite one another during processing rather than producing a clear duplicate error.
-7. Module-item IDs should be stable even when the target or display title changes.
+7. A module item's display-title change does not change its identity. When an item uses a derived ID, changing `content_id` changes its identity; preserve its previous derived value as an explicit `id` if it should remain the same item.
 
 Safe rename after identity is established:
 
@@ -259,6 +263,12 @@ Treat an explicit `published="true"` or `published="false"` as persistent source
 Other source fields that control release or visibility—such as page `publish_at`, announcement `publish_date`, availability windows, file lock/unlock dates, and module or item publication state—also require instructor-approved intent. They are not interchangeable with the ordinary post-deployment publication step. Parent modules, module items, and their target resources can have independent visibility state, so source authoring must not assume that publishing one publishes the others.
 
 At handoff, call out every explicit or inherited publication/visibility control affected by the source, the expected initial visibility of new resources, and any existing-resource state that deployment must verify. Do not add `published="true"` merely to save the deployment operator or instructor a separate publication action. Detailed deploy/publish sequencing and operational safeguards belong to the Deployment Engineer role.
+
+## Tag reference skills
+
+Load the relevant tag or tag-group skill before creating or editing its tags.
+
+{{ myteam_list('tags/') }}
 
 ## Canvas resource tags
 
@@ -381,7 +391,7 @@ Common item types are:
 
 Type values are case-insensitive. Page, assignment, quiz, and file items require `content_id`. Subheaders require `id` and `title`. External URLs require `id` and `external_url`; title is optional. Syllabus items require `id` and may supply a title.
 
-Every `<item>` must have an explicit stable `id`. Common item options are:
+For page, assignment, quiz, and file items, `id` is optional and defaults to `content_id`. Subheader, external URL, and syllabus items require explicit IDs. The parser namespaces each item ID by its module ID. Common item options are:
 
 - `position`;
 - `indent`;
@@ -670,7 +680,7 @@ Hazard: source location does not enforce Canvas audience visibility.
 
 ### Identity and graph integrity
 
-- Every MDXCanvas tag has an explicit stable ID unless it belongs to a documented fixed-, derived-, asset-, transformation-, or structural-tag exception.
+- Every tag meets the parser's identity requirements; explicit and derived IDs are stable and unique within their resource scope.
 - No title-only legacy resource was renamed without a two-step identity migration.
 - Module `content_id`, `<course-link id>`, assignment-group, prerequisite, and `never_drop` references target included IDs of the correct type.
 - Every intended resource has its intended module placement.

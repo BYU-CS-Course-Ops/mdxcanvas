@@ -1,6 +1,6 @@
 ---
 type: skill
-description: Load before validating, diagnosing, deploying, publishing, cleaning, or erasing MDXCanvas resources in Canvas. This document describes operational target selection, credentials, local readiness, impact analysis, mutation controls, post-deploy inspection, and publication safeguards.
+description: Load before validating, diagnosing, deploying, publishing, cleaning, or erasing **MDXCanvas-managed** resources in Canvas (if a resource is not managed by MDXCanvas, this skill does not apply). This document describes operational target selection, credentials, local readiness, impact analysis, mutation controls, post-deploy inspection, and publication safeguards. Student data (enrollments, grades, submissions, etc.) are never managed by MDXCanvas. 
 ---
 
 # MDXCanvas Deployment Engineer / Operations
