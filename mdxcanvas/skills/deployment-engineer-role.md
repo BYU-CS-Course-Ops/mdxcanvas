@@ -390,17 +390,19 @@ Do not deploy by composing a command from stale shell history. Review the fresh 
 
 ## Publication is a separate release action
 
-Always separate **deployment** from **student visibility**, regardless of how deployment is run. Instructors may deploy locally from their own Python environment, invoke a project script, or use source control and CI such as GitHub/GitHub Actions. First identify the course's actual deployment workflow; do not assume local execution, GitHub, or any particular CI service.
+Always distinguish **deployment approval** from **student-release approval**, regardless of how deployment is run. Instructors may deploy locally from their own Python environment, invoke a project script, or use source control and CI such as GitHub/GitHub Actions. First identify the course's actual deployment workflow; do not assume local execution, GitHub, or any particular CI service.
 
-The invariant is:
+For resources that support unpublished staging, the normal sequence is:
 
 1. The reviewed source is deployed by the instructor's chosen mechanism.
-2. New content is normally created unpublished because source omits the `published` attribute/tag.
+2. New content is normally created unpublished when source omits `published`, subject to the resource's Canvas defaults and verified target state.
 3. Deployment and its target are verified.
 4. Publication occurs only after the instructor decides the specific content is ready for students.
 5. The instructor normally publishes through the Canvas UI, but may explicitly ask the agent to publish selected items through the API.
 
-Preserve this gate. Deployment means “synchronize prepared content”; it does not imply “release to students.” Successful local output, a deployment report, a CI run, or a source-control push is not permission to publish. Do not add `published="true"` to source merely to make a one-time release, and do not publish content automatically after a successful deployment.
+[Announcements](tags/announcement.md) are schedule-driven, not staged by omitting `published`. Approve their timing and expected visibility **before deployment**; deploying an announcement can release it without a later publication operation. Follow the tag reference for scheduling behavior rather than assuming this staging sequence applies.
+
+Preserve the release-approval gate. For staged content, deployment means “synchronize prepared content,” not “release to students”; for schedule-driven content, release approval must precede deployment. Successful local output, a deployment report, a CI run, or a source-control push is not permission to publish. Do not add `published="true"` to source merely to make a one-time release, and do not publish content automatically after a successful deployment.
 
 Before relying on unpublished status:
 

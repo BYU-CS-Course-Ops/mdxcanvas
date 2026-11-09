@@ -494,8 +494,8 @@ A table works for genuinely uniform resources:
 ```markdown
 | ID                 | Title                 | Due                         | Instructions                                      |
 |--------------------|-----------------------|-----------------------------|---------------------------------------------------|
-| methods-field-note | Field Note            | {{ FIELD_NOTE_DUE }}        | ../unit2-methods/field-note/instructions.md       |
-| methods-interview  | Interview Reflection  | {{ INTERVIEW_REFLECTION_DUE }} | ../unit2-methods/interview/instructions.md     |
+| methods-field-note | Field Note            | {{ FIELD_NOTE_DUE }}        | ../../unit2-methods/field-note/instructions.md       |
+| methods-interview  | Interview Reflection  | {{ INTERVIEW_REFLECTION_DUE }} | ../../unit2-methods/interview/instructions.md     |
 ```
 
 Include it from the entry point:

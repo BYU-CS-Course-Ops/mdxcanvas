@@ -80,7 +80,9 @@ For compound quizzes, consult representation principles and then the authoritati
 
 ## Publication and visibility controls
 
-Deployment and publication are separate stages. As the normal authoring convention, omit `published` unless persistent synchronization of publication state was explicitly approved. A request to prepare or deploy content is not permission to make it visible. New resources normally require target review and a separate publication operation owned by the Deployment Engineer/instructor.
+Deployment approval and student-release approval are distinct. For resources that support unpublished staging, omit `published` unless persistent synchronization of publication state was explicitly approved; target review and a separate publication operation normally follow. A request to prepare or deploy content is not permission to make it visible.
+
+[Announcements](tags/announcement.md) are schedule-driven and can be released by deployment without a later publication operation. Obtain approved timing and expected visibility before handing them off; omitting `published` is not an announcement staging mechanism.
 
 Omission does not unpublish an existing resource or guarantee invisibility; updates generally preserve existing state. Preserve existing explicit controls unless changing them is authorized. Removing an explicit value may preserve the current Canvas state instead of reversing it.
 
