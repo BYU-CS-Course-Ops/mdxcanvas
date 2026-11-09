@@ -17,11 +17,10 @@ Use this reference when working with:
 
 ## Non-Negotiables
 
-- Always include a `<questions>` block. A quiz without questions is invalid.
-- Use `shuffle_answers="true"` for multiple-choice quizzes to prevent answer sharing.
-- Do not rename a quiz's `title` without first adding `id` equal to the current title.
-- Always use `MMM d, yyyy, h:mm AM/PM` for all date values.
-- Use `access_code` + `only_visible_to_overrides` together for locked exam quizzes.
+- For response-bearing quizzes, provide a `<questions>` block. The parser permits its omission; an empty block warns rather than fails.
+- Shuffling, attempt limits, access controls, and answer visibility are instructor choices, not universal requirements.
+- Every quiz requires `id` and `title`, and every question requires `id` and `type`. Preserve IDs when changing display text.
+- See [Shared parsing rules](parsing-rules.md) for dates, defaults, aliases, and overrides.
 
 ---
 
@@ -30,12 +29,12 @@ Use this reference when working with:
 The `<quiz>` tag contains two child elements:
 
 - `<description>` — optional instructions shown to students before they begin
-- `<questions>` — required; contains one or more `<question>` tags
+- `<questions>` — optional to the parser; only direct `<question>` children are processed. An empty block logs a warning. Top-level prose outside recognized child elements is ignored.
 - Some question types support per-answer feedback:
   `answer_comments` on `<correct>` / `<incorrect>`, `answer_comments` on `<pair>`, `answer_comments` on `<correct>` for fill-in and numerical questions, `answer_comments` on `<correct>` / `<incorrect>` for `multiple-tf`, and question-level `correct-comments` / `incorrect-comments` on `true-false`
 
 ```xml
-<quiz title="Chapter 1 Quiz"
+<quiz id="chapter-1" title="Chapter 1 Quiz"
       due_at="Jan 20, 2025, 11:59 PM"
       shuffle_answers="true"
       allowed_attempts="2"
@@ -46,7 +45,7 @@ The `<quiz>` tag contains two child elements:
     </description>
 
     <questions>
-        <question type="multiple-choice">
+        <question id="addition" type="multiple-choice">
             What is 2 + 2?
             <correct>4</correct>
             <incorrect>3</incorrect>
@@ -60,11 +59,16 @@ The `<quiz>` tag contains two child elements:
 
 ## Default Settings
 
-When not specified, MDXCanvas quizzes default to:
+When not specified, MDXCanvas emits these defaults:
 
-- `shuffle_answers="true"`
-- `allowed_attempts="2"`
+- `quiz_type="assignment"`
+- `show_correct_answers="true"`
+- `allowed_attempts="-1"` (unlimited attempts)
 - `scoring_policy="keep_highest"`
+
+Although `shuffle_answers` is declared with a false default, the current `parse_settings` implementation skips falsy defaults. Omitting it sends no `shuffle_answers` key: creation uses Canvas's default, and updates do not explicitly disable existing shuffling. Set `shuffle_answers="false"` when no shuffling must be enforced, or `"true"` to enable it.
+
+These are implementation facts, not recommended assessment settings. The examples below explicitly choose some settings.
 
 ---
 
@@ -73,29 +77,44 @@ When not specified, MDXCanvas quizzes default to:
 | Attribute                   | Required | Description                                                         |
 |-----------------------------|----------|---------------------------------------------------------------------|
 | `title`                     | yes      | Quiz title shown in Canvas                                          |
-| `id`                        | no       | Stable identifier; defaults to `title`                              |
-| `due_at`                    | no       | Due date: `MMM d, yyyy, h:mm AM/PM`                                 |
+| `id`                        | yes      | Stable identifier; no title fallback                                |
+| `due_at`                    | no       | Date in any supported form (see shared parsing rules) |
 | `available_from`            | no       | Date when quiz becomes available                                    |
 | `available_to`              | no       | Date when quiz closes                                               |
-| `assignment_group`          | no       | Grade category name                                                 |
+| `assignment_group`          | no       | Stable `id` of a `<group>` declared in `<assignment-groups>`          |
 | `shuffle_answers`           | no       | `"true"` to randomize answer order per student                      |
-| `time_limit`                | no       | Time limit in minutes; omit for no limit                            |
+| `time_limit`                | no       | Integer minutes; omission sends no limit setting (does not clear an existing limit) |
 | `allowed_attempts`          | no       | Number of attempts; `-1` for unlimited                              |
 | `scoring_policy`            | no       | `keep_highest` (default), `keep_latest`, `keep_average`             |
 | `access_code`               | no       | Passcode students must enter to access the quiz                     |
 | `quiz_type`                 | no       | `assignment` (default), `practice_quiz`, `graded_survey`            |
-| `points_possible`           | no       | Total points; if omitted, calculated from question points           |
-| `show_correct_answers_at`   | no       | Date when correct answers become visible: `MMM d, yyyy, h:mm AM/PM` |
+| `points_possible`           | no       | Finite decimal total forwarded to Canvas; MDXCanvas does not calculate a total here |
+| `show_correct_answers_at`   | no       | Date when correct answers become visible; all supported date forms accepted |
 | `only_visible_to_overrides` | no       | `"True"` — hide quiz from students not in an `<override>` section   |
 
 ---
 
+### Remaining supported attributes and aliases
+
+| Attribute(s) | Parsing / effective default |
+|---|---|
+| `assignment_group_id` | Alias of `assignment_group`; stable assignment-group source ID |
+| `unlock_at`, `lock_at` | Date aliases of `available_from`, `available_to` |
+| `hide_correct_answers_at` | Date |
+| `show_correct_answers` | Boolean; emitted default true |
+| `show_correct_answers_last_attempt`, `one_question_at_a_time`, `cant_go_back`, `one_time_results`, `published` | Boolean; omitted when absent |
+| `hide_results` | String, not boolean-parsed |
+| `position` | Integer |
+
+All other optional attributes without the emitted defaults above are omitted. `quiz_type`, `scoring_policy`, `hide_results`, and `access_code` are string pass-throughs; the parser does not validate Canvas enums. Survey variants include `survey` and `graded_survey`; choose only instructor-approved settings. See [Shared parsing rules](parsing-rules.md).
+
 ## Key Attribute Details
+
+Examples containing `...` are setting fragments, not complete response-bearing quizzes.
 
 ### `id`
 
-Use an explicit `id` when you need to rename the quiz later without creating a new resource. `id` will become required
-in a future version — add it now when you touch a resource.
+`id` is required now. Preserve it when changing the quiz title.
 
 ```xml
 <quiz id="midterm_exam" title="Midterm Exam">
@@ -103,13 +122,12 @@ in a future version — add it now when you touch a resource.
 </quiz>
 ```
 
-**When modifying a resource with no `id`:** first add `id` equal to the current `title` value and keep `title`
-unchanged. Then make other edits. Changing `title` without an `id` creates a new resource.
+For a legacy quiz deployed by an older version using implicit title identity, first add `id` equal to the previously deployed title without renaming it. Deploy that identity migration separately before a later rename. Current parsing rejects quizzes without `id`.
 
 ### `shuffle_answers`
 
 ```xml
-<quiz title="Quiz 1" shuffle_answers="true">
+<quiz id="quiz-1" title="Quiz 1" shuffle_answers="true">
     ...
 </quiz>
 ```
@@ -117,7 +135,7 @@ unchanged. Then make other edits. Changing `title` without an `id` creates a new
 ### `time_limit`
 
 ```xml
-<quiz title="Quiz 1" time_limit="30">
+<quiz id="quiz-1" title="Quiz 1" time_limit="30">
     ...
 </quiz>
 ```
@@ -125,7 +143,7 @@ unchanged. Then make other edits. Changing `title` without an `id` creates a new
 ### `allowed_attempts`
 
 ```xml
-<quiz title="Quiz 1" allowed_attempts="3">
+<quiz id="quiz-1" title="Quiz 1" allowed_attempts="3">
     ...
 </quiz>
 ```
@@ -135,7 +153,7 @@ Use `-1` for unlimited attempts.
 ### `access_code`
 
 ```xml
-<quiz title="Quiz 1" access_code="secure123">
+<quiz id="quiz-1" title="Quiz 1" access_code="secure123">
     ...
 </quiz>
 ```
@@ -143,7 +161,7 @@ Use `-1` for unlimited attempts.
 ### `quiz_type`
 
 ```xml
-<quiz title="Practice Quiz" quiz_type="practice_quiz">
+<quiz id="practice-quiz" title="Practice Quiz" quiz_type="practice_quiz">
     ...
 </quiz>
 ```
@@ -151,7 +169,7 @@ Use `-1` for unlimited attempts.
 ### `scoring_policy`
 
 ```xml
-<quiz title="Quiz 1" allowed_attempts="3" scoring_policy="keep_highest">
+<quiz id="quiz-1" title="Quiz 1" allowed_attempts="3" scoring_policy="keep_highest">
     ...
 </quiz>
 ```
@@ -159,18 +177,17 @@ Use `-1` for unlimited attempts.
 ### `show_correct_answers_at`
 
 ```xml
-<quiz title="Quiz 1" show_correct_answers_at="Jan 20, 2025, 12:00 PM">
+<quiz id="quiz-1" title="Quiz 1" show_correct_answers_at="Jan 20, 2025, 12:00 PM">
     ...
 </quiz>
 ```
 
 ### `only_visible_to_overrides`
 
-Hides the quiz from students who are not in any `<override>` section. Use this for password-locked quizzes that only
-specific sections should see.
+Requests visibility restricted to overrides. This is independent of `access_code`; choose either or both only according to instructor-approved access policy. Example section IDs must exist in the target.
 
 ```xml
-<quiz title="Lecture 3a Quiz"
+<quiz id="lecture-3a" title="Lecture 3a Quiz"
       access_code="bit-is-cool"
       only_visible_to_overrides="True">
     <overrides>
@@ -187,7 +204,7 @@ specific sections should see.
 Use `<overrides>` to set different due dates per course section:
 
 ```xml
-<quiz title="Midterm Exam" due_at="Feb 15, 2025, 11:59 PM">
+<quiz id="midterm-exam" title="Midterm Exam" due_at="Feb 15, 2025, 11:59 PM">
     <overrides>
         <override section_id="12345" due_at="Feb 20, 2025, 11:59 PM" />
         <override section_id="67890" due_at="Feb 22, 2025, 11:59 PM" />
@@ -205,32 +222,32 @@ Use `<overrides>` to set different due dates per course section:
 
 ---
 
-## Full Example
+## Resource example (requires assignment group `quizzes`)
 
 ```xml
-<quiz
+<quiz id="example-quiz"
     title="Example Quiz"
     due_at="Jan 1, 2025, 11:59 PM"
     available_from="Jan 1, 2025, 9:00 AM"
     available_to="Jan 1, 2025, 11:59 PM"
-    assignment_group="Quizzes"
+    assignment_group="quizzes"
     shuffle_answers="true"
     time_limit="30"
     allowed_attempts="3"
     scoring_policy="keep_highest"
-    points_possible="100">
+    points_possible="2">
 
     <description>
         This quiz includes various question types.
     </description>
 
     <questions>
-        <question type="true-false" answer="true"
+        <question id="sky-color" type="true-false" answer="true"
                   correct-comments="Correct" incorrect-comments="The sky is blue under normal daylight conditions.">
             Is the sky blue?
         </question>
 
-        <question type="multiple-choice">
+        <question id="france-capital" type="multiple-choice">
             What is the capital of France?
 
             <correct answer_comments="Exactly right">Paris</correct>
@@ -246,12 +263,12 @@ Use `<overrides>` to set different due dates per course section:
 
 ## Quick Example
 
-A minimal working quiz:
+A response-bearing resource example, requiring assignment group `quizzes`:
 
 ```xml
-<quiz title="Python Basics Quiz"
+<quiz id="python-basics" title="Python Basics Quiz"
       due_at="Jan 15, 2025, 11:59 PM"
-      assignment_group="Quizzes"
+      assignment_group="quizzes"
       shuffle_answers="true"
       allowed_attempts="2"
       scoring_policy="keep_highest">
@@ -261,12 +278,12 @@ A minimal working quiz:
     </description>
 
     <questions>
-        <question type="true-false" answer="true"
+        <question id="case-sensitive" type="true-false" answer="true"
                   correct-comments="Correct" incorrect-comments="Python variable names are case-sensitive.">
             Python variable names are case-sensitive.
         </question>
 
-        <question type="multiple-choice">
+        <question id="variable-name" type="multiple-choice">
             Which of the following is a valid Python variable name?
 
             <correct answer_comments="Underscores are allowed after the first character">my_var</correct>
@@ -275,7 +292,7 @@ A minimal working quiz:
             <incorrect>my var</incorrect>
         </question>
 
-        <question type="fill-in-the-blank">
+        <question id="float-type" type="fill-in-the-blank">
             The result of `type(3.14)` in Python is [blank].
 
             <correct text="float" />

@@ -1,9 +1,40 @@
 ---
 type: skill
-description: Load when declaring <group-categories> and <group-category> tags or referencing group categories from assignments.
+description: Load for assignment groups (<assignment-groups>/<group>), student group categories, or assignment references to either.
 ---
 
-# `<group-category>` Tag
+# Assignment groups and student group categories
+
+## `<assignment-groups>` and `<group>`
+
+Assignment groups organize graded work; they are not student teams. `<assignment-groups>` is a structural wrapper. Each `<group>` accepts:
+
+| Attribute | Required | Parsing / default |
+|---|---|---|
+| `id` | yes | Stable source identity |
+| `name` | yes | Display name |
+| `weight` / `group_weight` | no | Integer |
+| `never_drop` | no | List of stable assignment IDs |
+| `drop_lowest`, `drop_highest`, `position` | no | Integers |
+
+Setting `weight` (including explicit zero) makes deployment enable course-wide assignment-group weighting. This requires approved grading intent; omitting it does not disable existing weighting.
+
+No defaults are emitted. Truthy drop fields and `never_drop` move into `rules`; explicit zero drop counts remain top-level rather than entering `rules`, so do not rely on zero to clear existing rules. Assignment and quiz `assignment_group` references use `id`, not `name`. See [Shared parsing rules](parsing-rules.md).
+
+Complete resource fragment (grading weights are illustrative instructor choices):
+
+```xml
+<assignment-groups>
+  <group id="homework" name="Homework" weight="30" />
+</assignment-groups>
+<assignment id="analysis-report" title="Analysis Report" assignment_group="homework">
+  Submit the approved report.
+</assignment>
+```
+
+`never_drop="analysis-report"` can be added to that group after the group and assignment have been deployed and their identities are tracked. Do not create a new group with `never_drop` referencing a new assignment that also references that group in the same initial deployment: this creates a dependency cycle the current planner cannot bootstrap. Coordinate any staged deployment with the Deployment Engineer.
+
+## `<group-category>` Tag
 
 ## When to Use This Reference
 
@@ -18,7 +49,7 @@ Use this reference when working with:
 - An `<assignment>` joins a category by the **`id` you declared**, not by the
   category's Canvas name. `group_category` is resolved the same way
   `assignment_group` is.
-- Declare categories inside a `<group-categories>` block, as `<assignment-groups>` does.
+- A `<group-categories>` wrapper can organize categories, as `<assignment-groups>` organizes grading groups; the wrapper is not required by the parser.
 - `auto_leader` requires `self_signup`. Canvas rejects it on its own.
 - Membership is not declared here. See below.
 
@@ -60,6 +91,8 @@ mid-project.
 
 ## Attributes
 
+No defaults or aliases are defined. Optional string fields are forwarded without enum validation; `group_limit` uses integer parsing. `<group-categories>` is only a wrapper. The parser accepts a category wherever reachable; no fixed file location is required.
+
 | Attribute      | Required | Description                                                                 |
 |----------------|----------|-----------------------------------------------------------------------------|
 | `id`           | yes      | Stable identifier; this is what an `<assignment>` references                  |
@@ -98,7 +131,7 @@ An instructor-assigned category, with no self sign-up:
 
 ---
 
-## Skeleton Template
+## Skeleton Template (replace placeholders; not runnable)
 
 ```xml
 <group-categories>

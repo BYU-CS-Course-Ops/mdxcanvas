@@ -84,7 +84,7 @@ Optional `GLOBAL_ARGS` are injected into every Jinja template. A separate `--glo
 
 `DEPLOY_ROOT` is resolved relative to the **course-info file's directory**, not the shell's current directory and not necessarily the entry point. File and generated-resource checksum paths are resolved against that absolute root. Reject a root that unexpectedly escapes the intended project or does not contain the referenced assets.
 
-`LOCAL_TIME_ZONE` must be a valid IANA zone. Naive accepted dates are localized to it and converted to UTC. Accepted deployment forms include `Mon DD, YYYY, HH:MM AM/PM`, the comma-less equivalent, and supported ISO forms. Validate dates from the fully rendered graph, not only source text.
+`LOCAL_TIME_ZONE` must be a valid IANA zone for deployment timestamps. For accepted date forms and actual timezone handling, load [Shared tag parsing rules](tags/parsing-rules.md): active deployment does not automatically localize naive dates or convert them to UTC. Validate dates from the fully rendered graph, not only source text.
 
 ### Entry point and args
 

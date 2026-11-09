@@ -17,10 +17,10 @@ Use this reference when working with:
 
 ## Non-Negotiables
 
-- Do not rename an assignment's `title` without first adding an explicit `id` equal to the current title.
+- Every assignment requires `id` and `title`. Preserve `id` when renaming `title`.
 - Do not leave `assignment_group` blank if grade weights matter — it must match a `<group>` defined in
   `<assignment-groups>`.
-- Always use `MMM d, yyyy, h:mm AM/PM` for all date values.
+- Dates follow [Shared parsing rules](parsing-rules.md); assessment choices belong to the instructor.
 
 ---
 
@@ -29,29 +29,45 @@ Use this reference when working with:
 | Attribute                      | Required | Description                                                             |
 |--------------------------------|----------|-------------------------------------------------------------------------|
 | `title`                        | yes      | Assignment title shown in Canvas                                        |
-| `id`                           | no       | Stable identifier; defaults to `title`                                  |
-| `due_at`                       | no       | Due date: `MMM d, yyyy, h:mm AM/PM`                                     |
+| `id`                           | yes      | Stable identifier; no title fallback                                    |
+| `due_at`                       | no       | Date in any supported form (see shared parsing rules) |
 | `available_from`               | no       | Date when assignment becomes available                                  |
 | `available_to`                 | no       | Date when assignment closes                                             |
-| `late_due`                     | no       | Latest date to accept late submissions                                  |
+| `late_due`                     | no       | Parsed date forwarded unchanged; no implemented cutoff translation (see below) |
 | `points_possible`              | no       | Maximum points (integer)                                                |
-| `assignment_group`             | no       | Grade category name (must match an `<assignment-groups>` group)         |
+| `assignment_group`             | no       | Stable `id` of a `<group>` declared in `<assignment-groups>`             |
 | `submission_types`             | no       | e.g., `online_upload`, `external_tool`, `not_graded`                    |
 | `external_tool_tag_attributes` | no       | Used with `submission_types="external_tool"`                            |
 | `only_visible_to_overrides`    | no       | `"True"` — hide assignment from students not in an `<override>` section |
 
 ---
 
+### Remaining supported attributes and aliases
+
+Optional fields are omitted unless a default is stated. See [Shared parsing rules](parsing-rules.md) for conversions and aliases.
+
+| Attribute(s) | Parsing / effective default |
+|---|---|
+| `name` | Alias of required `title` |
+| `unlock_at`, `lock_at` | Aliases of `available_from`, `available_to`; dates |
+| `assignment_group_id` | Alias of `assignment_group`; stable source ID, not Canvas numeric ID |
+| `group_category`, `group_category_id` | Stable group-category source ID; aliases |
+| `allowed_attempts` | Integer, or literal `not_graded` converted to -1 |
+| `allowed_extensions` | List |
+| `grading_type` | String; emitted default `points` |
+| `position` | Integer |
+| `published`, `automatic_peer_reviews`, `grade_group_students_individually`, `grader_comments_visible_to_graders`, `grader_names_visible_to_final_grader`, `graders_anonymous_to_graders`, `hide_in_gradebook`, `moderated_grading`, `notify_of_update`, `omit_from_final_grade`, `peer_reviews`, `turnitin_enabled`, `vericite_enabled` | Boolean; omitted when absent, including declared false defaults |
+| `annotatable_attachment_id`, `final_grader_id`, `grading_standard_id`, `grader_count`, `integration_data`, `quiz_lti`, `turnitin_settings` | Strings; parser acceptance does not validate Canvas compatibility |
+
+`submission_types` and `allowed_extensions` use list parsing; `external_tool_tag_attributes` uses string-valued dictionary parsing, including `new_tab=true`.
+
 ## Key Attribute Details
 
 ### `id`
 
-Use an explicit `id` when you need to rename an assignment later without creating a new resource. `id` will become
-required in a future version — add it now when you touch a resource.
+`id` is required now. Renaming `title` while preserving `id` updates the same resource.
 
-**When modifying a resource with no `id`:** first add `id` equal to the current `title` value and keep `title`
-unchanged. Then make other edits. Changing `title` without an `id` creates a new resource instead of updating the
-existing one.
+For a legacy resource deployed by an older version using its title as implicit identity, first add `id` equal to that previously deployed title and leave the title unchanged. Deploy that identity migration separately before a later rename. Current parsing rejects assignments without `id`.
 
 ```xml
 <assignment id="hw1" title="Homework 1 (Revised)">
@@ -61,10 +77,10 @@ existing one.
 
 ### `late_due`
 
-Students can still submit after `due_at` but before `late_due`.
+`late_due` is handled during deployment; see [Shared parsing rules](parsing-rules.md).
 
 ```xml
-<assignment
+<assignment id="hw1"
     title="Homework 1"
     due_at="Jan 15, 2025, 11:59 PM"
     late_due="Jan 17, 2025, 11:59 PM">
@@ -85,7 +101,7 @@ Common values:
 Hides the assignment from students who are not in any `<override>` section.
 
 ```xml
-<assignment title="Section-Specific Homework"
+<assignment id="section-homework" title="Section-Specific Homework"
             only_visible_to_overrides="True">
     <overrides>
         <override section_id="12345" due_at="Jan 20, 2025, 11:59 PM"/>
@@ -96,22 +112,13 @@ Hides the assignment from students who are not in any `<override>` section.
 
 ### `external_tool_tag_attributes`
 
-Add `new_tab=true` to open the tool in a new browser tab:
+This is an unconfigured placeholder URL, not a working integration. Replace it only with an instructor-approved, institution-configured URL. `new_tab=true` requests a new tab. Resource fragment:
 
 ```xml
-<assignment
-    title="Gradescope Submission"
+<assignment id="tool-submission" title="External Tool Submission"
     submission_types="external_tool"
-    external_tool_tag_attributes="url=https://lti.int.turnitin.com/launch/gs-proxy">
-    ...
-</assignment>
-
-<!-- Open in new tab -->
-<assignment
-    title="Progress Check"
-    submission_types="external_tool"
-    external_tool_tag_attributes="url=https://lti.int.turnitin.com/launch/gs-proxy,new_tab=true">
-    ...
+    external_tool_tag_attributes="url=https://unconfigured-tool.example.invalid/launch,new_tab=true">
+    Follow the approved submission instructions.
 </assignment>
 ```
 
@@ -122,10 +129,10 @@ Add `new_tab=true` to open the tool in a new browser tab:
 Place Markdown or HTML directly inside the tag:
 
 ```xml
-<assignment title="Homework 1">
+<assignment id="hw1" title="Homework 1">
     # Homework 1
 
-    Complete the following exercises and submit via Gradescope.
+    Complete the instructor-approved exercises and submission process.
 
     ## Instructions
     1. Read the assignment.
@@ -137,7 +144,7 @@ Place Markdown or HTML directly inside the tag:
 Use `<include>` to pull content from an external file:
 
 ```xml
-<assignment title="Homework 1">
+<assignment id="hw1" title="Homework 1">
     <include path="content/assignments/hw1.md"/>
 </assignment>
 ```
@@ -147,7 +154,7 @@ Use `<include>` to pull content from an external file:
 ## Section-Specific Dates
 
 ```xml
-<assignment title="Homework 1" due_at="Jan 15, 2025, 11:59 PM">
+<assignment id="hw1" title="Homework 1" due_at="Jan 15, 2025, 11:59 PM">
     <overrides>
         <override section_id="12345" due_at="Jan 20, 2025, 11:59 PM" />
         <override section_id="67890" due_at="Jan 22, 2025, 11:59 PM" />
@@ -159,36 +166,36 @@ Use `<include>` to pull content from an external file:
 
 ---
 
-## Full Example
+## Resource example (requires the `homework` group and approved tool configuration)
 
 ```xml
-<assignment
+<assignment id="example-homework"
     title="Example Homework"
     due_at="Jan 1, 2025, 11:59 PM"
     available_from="Jan 1, 2025, 9:00 AM"
     available_to="Jan 1, 2025, 11:59 PM"
     points_possible="30"
-    assignment_group="Homework"
+    assignment_group="homework"
     submission_types="external_tool"
-    external_tool_tag_attributes="url=https://lti.int.turnitin.com/launch/gs-proxy">
+    external_tool_tag_attributes="url=https://unconfigured-tool.example.invalid/launch">
 
-    Complete the homework by following [these instructions](instructions).
+    Complete the homework following the instructor-approved instructions.
 
-    Then upload your `.py` files to Gradescope.
+    Then submit using the approved tool.
 </assignment>
 ```
 
 ---
 
-## Skeleton Template
+## Skeleton Template (replace bracketed placeholders; not runnable)
 
 ```xml
-<assignment
+<assignment id="[STABLE ID]"
     title="[ASSIGNMENT TITLE]"
     due_at="[MMM d, yyyy, h:mm AM/PM]"
     available_from="[MMM d, yyyy, h:mm AM/PM]"
     points_possible="[POINTS]"
-    assignment_group="[GROUP NAME]">
+    assignment_group="[GROUP ID]">
 
     # [ASSIGNMENT TITLE]
 

@@ -16,8 +16,8 @@ Use this reference when working with:
 
 ## Non-Negotiables
 
-- Do not rename a page's `title` without first adding `id` equal to the current title.
-- Always set `id` when creating a new page if it will be referenced via `<item content_id>`.
+- Every `<page>` requires `id` and `title`; preserve `id` when changing the display title.
+- Every `<md-page>` requires `id` and `path`; its title may be derived from the file.
 
 ---
 
@@ -25,13 +25,20 @@ Use this reference when working with:
 
 | Attribute | Required | Description                                                |
 |-----------|----------|------------------------------------------------------------|
-| `title`   | yes      | Page title shown in Canvas and referenced in `<item>` tags |
-| `id`      | no       | Stable identifier; defaults to `title`                     |
+| `title`   | yes      | Page title shown in Canvas                                |
+| `id`      | yes      | Stable identifier referenced by `<item content_id>`        |
+
+| Additional optional attribute | Parsing / effective default |
+|---|---|
+| `editing_roles` | String; emitted default `teachers` |
+| `notify_of_update`, `front_page`, `published` | Boolean; omitted when absent (declared false defaults are skipped) |
+| `student_todo_at`, `publish_at` | Dates; omitted when absent |
+
+See [Shared parsing rules](parsing-rules.md). `<page>` has no title alias. For `<md-page>` helper fields and path/title derivation, see [Helpers](helper-tags.md); it does not forward arbitrary page settings.
 
 ### `id`
 
-Use an explicit `id` when you need to rename the page later without creating a new resource. `id` will become required
-in a future version — add it now when you touch a resource.
+`id` is required now. Preserve it when renaming a page so references and Canvas identity remain unchanged.
 
 ```xml
 <page id="intro_page" title="Introduction (Updated)">
@@ -39,9 +46,7 @@ in a future version — add it now when you touch a resource.
 </page>
 ```
 
-**When modifying a resource with no `id`:** first add `id` equal to the current `title` value and keep `title`
-unchanged. Then make other edits. Changing `title` without an `id` creates a new resource instead of updating the
-existing one.
+For legacy pages deployed by older versions using implicit title identity, first add `id` equal to the previously deployed title without renaming it. Deploy that identity migration separately before a later rename. Current parsing rejects pages without `id`.
 
 ---
 
@@ -59,10 +64,10 @@ All standard Markdown and Canvas HTML formatting is supported.
 
 ---
 
-## Example
+## Complete page example
 
-```xml
-<page title="Example Page">
+````xml
+<page id="example-page" title="Example Page">
     # Welcome to the Example Page
 
     Things like headers and `MD` formatting can be used here.
@@ -86,30 +91,30 @@ All standard Markdown and Canvas HTML formatting is supported.
     | Row 1    | Row 2    |
     | Row 3    | Row 4    |
 </page>
-```
+````
 
 ---
 
 ## Creating a Page from a Markdown File
 
-Use `<md-page>` to create a Canvas page directly from a `.md` file. The first `# Heading` becomes the page title:
+Use `<md-page>` with required `id` and `path` to create a Canvas page directly from a `.md` file. A first-line `# Heading` becomes the title; otherwise the filename stem is used. These fragments require the local source files:
 
 ```xml
-<md-page path="content/pages/week1-intro.md"/>
+<md-page id="week1-intro" path="content/pages/week1-intro.md"/>
 ```
 
 Override the auto-detected title with the `title` attribute:
 
 ```xml
-<md-page path="content/pages/week1.md" title="Week 1: Getting Started"/>
+<md-page id="week1" path="content/pages/week1.md" title="Week 1: Getting Started"/>
 ```
 
 ---
 
-## Skeleton Template
+## Skeleton Template (replace placeholders; not runnable)
 
 ```xml
-<page title="[PAGE TITLE]">
+<page id="[STABLE ID]" title="[PAGE TITLE]">
     # [PAGE TITLE]
 
     [Page introduction or overview here.]
@@ -126,8 +131,7 @@ Override the auto-detected title with the `title` attribute:
 
     ## Resources
 
-    - [Resource 1](link)
-    - [Resource 2](link)
+    - [Insert approved resource links here.]
 
 </page>
 ```

@@ -14,14 +14,14 @@ Use this reference when working with:
 ## Non-Negotiables
 
 - Only one `<syllabus>` tag per course.
-- Place it in the entry point file.
+- Place it anywhere reachable from the active entry point, including an included fragment. Its fixed resource identity is `syllabus`; duplicate declarations can overwrite one another.
 
 ---
 
 ## Overview
 
 The `<syllabus>` tag sets the content of the Canvas course syllabus page. It has no attributes — it wraps content
-directly.
+directly. The processor does not validate attributes, but none configure the syllabus; do not add identity or scheduling attributes.
 
 ---
 
