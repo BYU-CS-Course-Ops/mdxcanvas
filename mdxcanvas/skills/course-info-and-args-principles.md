@@ -20,6 +20,8 @@ Preserve the target repository's established filename, key casing, and configura
 
 ## Configuration layers
 
+For runtime mechanics, load the [Jinja Operational Reference](jinja-templating-reference.md): course-info `GLOBAL_ARGS` is shallow-overridden by CLI `--global-args`, while `--args` and include `args` supply separate per-template data. It also documents supported formats, path contexts, and exact data access patterns.
+
 ### Stable curriculum and local metadata
 
 Stable curriculum commonly includes outcomes, explanations, assignment intent and instructions, questions, rubrics, starter material, and stable resource IDs. Keep it in the unit, lesson, project, or shared curriculum source that owns it.

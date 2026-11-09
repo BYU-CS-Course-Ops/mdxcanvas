@@ -62,6 +62,8 @@ Syllabus, navigation, and course settings are singletons. Overrides derive ident
 
 ## Source formats, templates, and args
 
+Load the [Jinja Operational Reference](jinja-templating-reference.md) when editing templates or args: it covers helper signatures, path contexts, MarkdownData schemas, merged globals, loops, and multiline Markdown.
+
 Static `.canvas.md.xml` and templated `.canvas.md.xml.jinja` sources may coexist. Do not template a one-off resource merely for consistency. Markdown files can be consumed by includes/generated pages; final `.jinja` is what enables template rendering.
 
 Args support JSON, CSV, YAML, MarkdownData, and Jinja-rendered variants. The included template receives the loaded object as `args`. Inspect actual keys, capitalization, types, nesting, heading structure, indentation, and table columns before editing: these may be data contracts, not presentation.

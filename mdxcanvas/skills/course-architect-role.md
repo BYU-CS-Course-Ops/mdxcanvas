@@ -294,6 +294,8 @@ Adapt vocabulary and bundle contents to the discipline. Do not create empty dire
 
 ## MDXCanvas source patterns
 
+Use the [Jinja Operational Reference](jinja-templating-reference.md) for template and args mechanics, helper contracts, path resolution, and exact MarkdownData shapes when specifying these patterns.
+
 These examples communicate architecture. The Content Author must load the authoritative [tag references](tags/description.md) and confirm current syntax before implementation.
 
 ### A small, readable entry point
