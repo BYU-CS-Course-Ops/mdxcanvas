@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.14 - 2026-11-09
+
+### Added
+
+- More complete content-authorings skills
+
 ## 0.8.13 - 2026-11-03
 
 ### Added

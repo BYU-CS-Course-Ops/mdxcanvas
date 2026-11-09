@@ -3,6 +3,7 @@ type: skill
 description: Load when planning or reorganizing an MDXCanvas course architecture. This skill provides guidance for source layout, templating, and organization. If you are setting up a course to use mdxcanvas, or need to work with an existing course's content organization, load this skill. Consider also loading the `course-info-and-args-principles` skill. 
 ---
 
+{% raw %}
 # MDXCanvas Course Architect
 
 ## Mission
@@ -293,7 +294,9 @@ Adapt vocabulary and bundle contents to the discipline. Do not create empty dire
 
 ## MDXCanvas source patterns
 
-These examples communicate architecture. The Content Author must confirm current syntax with the MDXCanvas reference skill before implementation.
+Use the [Jinja Operational Reference](jinja-templating-reference.md) for template and args mechanics, helper contracts, path resolution, and exact MarkdownData shapes when specifying these patterns.
+
+These examples communicate architecture. The Content Author must load the authoritative [tag references](tags/description.md) and confirm current syntax before implementation.
 
 ### A small, readable entry point
 
@@ -491,8 +494,8 @@ A table works for genuinely uniform resources:
 ```markdown
 | ID                 | Title                 | Due                         | Instructions                                      |
 |--------------------|-----------------------|-----------------------------|---------------------------------------------------|
-| methods-field-note | Field Note            | {{ FIELD_NOTE_DUE }}        | ../unit2-methods/field-note/instructions.md       |
-| methods-interview  | Interview Reflection  | {{ INTERVIEW_REFLECTION_DUE }} | ../unit2-methods/interview/instructions.md     |
+| methods-field-note | Field Note            | {{ FIELD_NOTE_DUE }}        | ../../unit2-methods/field-note/instructions.md       |
+| methods-interview  | Interview Reflection  | {{ INTERVIEW_REFLECTION_DUE }} | ../../unit2-methods/interview/instructions.md     |
 ```
 
 Include it from the entry point:
@@ -737,3 +740,4 @@ Before handoff, verify:
 A good architecture makes common work obvious and unusual work possible. An instructor should be able to locate an artifact, identify its owner and audience, understand what else changes with it, infer the student's Canvas path, and roll the course to a new offering without tracing a web of exceptions.
 
 Prefer locality, explicitness, stable identity, one source of truth, modest automation, and documented decisions over maximal abstraction.
+{% endraw %}
