@@ -31,6 +31,20 @@ def republish_quiz_after_edit(canvas_quiz, was_published: bool):
         canvas_quiz.edit(quiz={'published': True})
 
 
+def recompute_quiz_points(canvas_quiz):
+    """Make Canvas recompute points_possible from the quiz's questions.
+
+    Only for a quiz with no submissions: Canvas refuses to unpublish one that has
+    them. An unpublished quiz recomputes on any save; a published one only on
+    unpublish and republish, since a save that changes nothing is ignored.
+    """
+    if canvas_quiz.published:
+        canvas_quiz.edit(quiz={'published': False})
+        canvas_quiz.edit(quiz={'published': True})
+    else:
+        canvas_quiz.edit(quiz={'notify_of_update': False})
+
+
 def deploy_quiz(course: Course, quiz_data: dict, _: Path) -> tuple[QuizInfo, tuple[str, str | None] | None]:
     """Deploy quiz settings/metadata only. Questions are deployed separately."""
     info = None
@@ -65,6 +79,9 @@ def deploy_quiz(course: Course, quiz_data: dict, _: Path) -> tuple[QuizInfo, tup
 
 
 def deploy_quiz_question(course: Course, quiz_question_data: dict, _: Path) -> tuple[QuizQuestionInfo, tuple[str, str | None] | None]:
+    """Write one question. The quiz's point total is recomputed afterwards by
+    deploy_quiz_question_order, which runs once per quiz after every question;
+    questions run concurrently, so none of them touches the quiz's published state."""
     if not (canvas_quiz := course.get_quiz(quiz_question_data['quiz_id'])):
         raise ValueError(f'Unable to find quiz {quiz_question_data["quiz_id"]}')
 
@@ -75,21 +92,9 @@ def deploy_quiz_question(course: Course, quiz_question_data: dict, _: Path) -> t
     info = None
     if quiz_question_data.get('canvas_id') and (
             quiz_question := canvas_quiz.get_question(quiz_question_data['canvas_id'])):
-        # Updating existing question
+        # Updating existing question; with submissions the user must review in the browser
         info = get_quiz_review_info(canvas_quiz)
-
-        was_published = False
-
-        if info is None:
-            # No submissions - safe to unpublish, edit, republish
-            was_published = unpublish_quiz_for_edit(canvas_quiz)
-
-        # else: has submissions - edit anyway, user must manually save in browser
         quiz_question.edit(question=quiz_question_data)
-
-        if info is None:
-            # No submissions - republish if needed
-            republish_quiz_after_edit(canvas_quiz, was_published)
     else:
         # Creating new question
         quiz_question = canvas_quiz.create_question(question=quiz_question_data)
@@ -104,8 +109,17 @@ def deploy_quiz_question(course: Course, quiz_question_data: dict, _: Path) -> t
 
 def deploy_quiz_question_order(course: Course, order_data: QuizQuestionOrderData, _: Path) -> tuple[QuizQuestionOrderInfo, tuple[str, str | None] | None]:
     """
-    Reorder quiz questions using Canvas API.
-    NOTE: No CanvasAPI wrapper method exists for this endpoint.
+    Reorder quiz questions, then make Canvas recompute the quiz's point total.
+
+    This runs once per quiz, after the quiz and every one of its questions, and
+    whenever any of them changed. Canvas keeps a quiz's points_possible as a
+    stored value that only a save recomputes: on an unpublished quiz any save
+    does it; on a published quiz a save changes nothing, and only unpublishing
+    and republishing does. A quiz with submissions cannot be unpublished, so
+    there the total is left for the user to fix in the browser, and the review
+    info says so.
+
+    NOTE: No CanvasAPI wrapper method exists for the reorder endpoint.
 
     Args:
         course: Canvas course object
@@ -117,13 +131,6 @@ def deploy_quiz_question_order(course: Course, order_data: QuizQuestionOrderData
     canvas_quiz: Quiz = course.get_quiz(quiz_id)
 
     info = get_quiz_review_info(canvas_quiz)
-
-    was_published = False
-
-    if info is None:
-        # No submissions - safe to unpublish, reorder, republish
-        was_published = unpublish_quiz_for_edit(canvas_quiz)
-    # else: has submissions - reorder anyway, user must manually save in browser
 
     # Canvas API expects order as repeated form fields: order[][id]=1&order[][type]=question
     # Reorder API Docs: https://developerdocs.instructure.com/services/canvas/resources/quizzes#method.quizzes-quizzes_api.reorder
@@ -139,8 +146,7 @@ def deploy_quiz_question_order(course: Course, order_data: QuizQuestionOrderData
     )
 
     if info is None:
-        # No submissions - republish if needed
-        republish_quiz_after_edit(canvas_quiz, was_published)
+        recompute_quiz_points(canvas_quiz)
 
     return QuizQuestionOrderInfo(
         id=quiz_id,

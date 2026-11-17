@@ -126,6 +126,11 @@ class HandlerSpec:
     modified_action: ModifiedAction = ModifiedAction.UPDATE
     absence_policy: AbsencePolicy = AbsencePolicy.DELETE
     prepare_cycle_breaker: CycleBreaker | None = None
+    # Reapply this resource whenever any resource it references is planned,
+    # and run it only after every one of them has finished. For a step that
+    # finalizes its dependencies, such as a quiz's question order, which also
+    # makes Canvas recompute the quiz's point total after its questions change.
+    reapply_on_dependency_change: bool = False
 
 
 def validate_handlers(handlers: Mapping[str, HandlerSpec]):

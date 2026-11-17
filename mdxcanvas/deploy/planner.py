@@ -95,19 +95,29 @@ def plan_deployment(resources: Mapping[tuple[str, str], CanvasResource], ledger:
                 if isinstance(actions[consumer], Create):
                     queue.append(consumer)
 
+    # A finalizing resource is reapplied whenever anything it references is planned.
+    for consumer in sorted(desired):
+        if not handlers[consumer[0]].reapply_on_dependency_change or consumer in transitions:
+            continue
+        if any(producer in actions for producer in dependencies.get(consumer, set())):
+            add(consumer, Transition.MODIFIED)
+
     if not no_cleanup:
         for key in sorted(set(decoded) - set(desired) - referenced):
             if key[0] not in handlers:
                 raise PlanningError(f"Unsupported resource type {key[0]}")
             add(key, Transition.STALE)
 
-    # Action dependency graph: consumers wait only for identity-producing creates.
+    # Action dependency graph: consumers wait only for identity-producing creates,
+    # except a finalizing resource, which waits for every planned dependency.
     predecessors = {key: set() for key in actions}
     for consumer, refs in dependencies.items():
         if consumer not in actions:
             continue
+        waits_for_updates = handlers[consumer[0]].reapply_on_dependency_change
         for producer in refs:
-            if isinstance(actions.get(producer), Create):
+            action = actions.get(producer)
+            if isinstance(action, Create) or (waits_for_updates and isinstance(action, Update)):
                 predecessors[consumer].add(producer)
 
     # Stale children are removed before their stale parents.
