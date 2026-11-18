@@ -26,7 +26,10 @@ def _references(resource: CanvasResource):
 
 def plan_deployment(resources: Mapping[tuple[str, str], CanvasResource], ledger: Mapping,
                     handlers: Mapping[str, HandlerSpec], deploy_root: Path,
-                    *, no_cleanup: bool = False) -> DeploymentPlan:
+                    *, no_cleanup: bool = False,
+                    drifted: frozenset[tuple[str, str]] = frozenset()) -> DeploymentPlan:
+    """`drifted` names tracked resources whose Canvas state no longer matches the ledger;
+    they are rewritten even though their source is unchanged."""
     desired = deepcopy(dict(resources))
     entries = ledger["resources"]
     decoded = {tuple(raw.split("|", 1)): deepcopy(entry) for raw, entry in entries.items()}
@@ -92,7 +95,7 @@ def plan_deployment(resources: Mapping[tuple[str, str], CanvasResource], ledger:
             info = old.get("canvas_info")
             if old.get("checksum") is not None and (not info or not info.get("id")):
                 raise PlanningError(f"Tracked {resource_type} {key[1]} has checksum but no Canvas identity")
-            if old.get("checksum") != checksums[key]:
+            if old.get("checksum") != checksums[key] or key in drifted:
                 add(key, Transition.MODIFIED)
 
     if not no_cleanup:
