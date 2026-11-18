@@ -5,6 +5,7 @@
 ### Fixed
 
 - Module items land in source order when a deploy moves them. Each item now waits for the item before it to be written, whether that item is created or updated, and for every module item being removed, because Canvas shifts an item's neighbors whenever it places one.
+- A deploy repairs a module whose order in Canvas no longer matches the source, whether it was rearranged by hand or left scrambled by an earlier deploy. Each deploy reads the order of every module it tracks items in, and rewrites all of a mismatched module's items in source order. A dry run lists them as modified.
 
 ## 0.8.14 - 2026-11-09
 

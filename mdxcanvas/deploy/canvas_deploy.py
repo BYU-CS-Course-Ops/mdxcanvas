@@ -14,6 +14,7 @@ from .checksums import MD5Sums
 from .executor import execute_dag, retry_rate_limit
 from .handlers import build_builtin_handlers
 from .migration import migrate_ledger
+from .module import find_misplaced_module_items
 from .planner import PlanningError, plan_deployment
 from ..deployment_report import DeploymentReport
 from ..our_logging import get_logger
@@ -138,8 +139,9 @@ def deploy_to_canvas(course: Course, timezone: str,
     try:
         canonical, migration_changed = migrate_ledger(store.load())
         handlers = build_builtin_handlers()
+        drifted = frozenset(find_misplaced_module_items(course, resources, canonical))
         plan = plan_deployment(deepcopy(resources), deepcopy(canonical), handlers, deploy_root,
-                               no_cleanup=no_cleanup)
+                               no_cleanup=no_cleanup, drifted=drifted)
         report.set_expected_changes(plan.expected_changes)
         _log_plan(plan.nodes)
     except Exception as error:
