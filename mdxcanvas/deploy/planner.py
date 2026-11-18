@@ -101,14 +101,23 @@ def plan_deployment(resources: Mapping[tuple[str, str], CanvasResource], ledger:
                 raise PlanningError(f"Unsupported resource type {key[0]}")
             add(key, Transition.STALE)
 
-    # Action dependency graph: consumers wait only for identity-producing creates.
+    # Action dependency graph: consumers wait only for identity-producing creates,
+    # except a positional resource, which also waits for updates of what it references
+    # and for deletions of its own type, so that siblings land in source order.
     predecessors = {key: set() for key in actions}
     for consumer, refs in dependencies.items():
         if consumer not in actions:
             continue
+        positional = handlers[consumer[0]].positional
         for producer in refs:
-            if isinstance(actions.get(producer), Create):
+            action = actions.get(producer)
+            if isinstance(action, Create) or (positional and isinstance(action, Update)):
                 predecessors[consumer].add(producer)
+        if positional:
+            predecessors[consumer].update(
+                key for key, action in actions.items()
+                if key[0] == consumer[0] and isinstance(action, Delete)
+            )
 
     # Stale children are removed before their stale parents.
     stale_by_canvas_id = {}

@@ -124,6 +124,7 @@ def build_builtin_handlers() -> dict[str, HandlerSpec]:
             modified_action=ModifiedAction.CREATE if resource_type in replacements else ModifiedAction.UPDATE,
             absence_policy=AbsencePolicy.UNTRACK if resource_type in untracked else AbsencePolicy.DELETE,
             prepare_cycle_breaker=breakers.get(resource_type),
+            positional=resource_type == "module_item",
         )
     validate_handlers(handlers)
     return handlers

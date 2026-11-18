@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.15 - 2026-11-18
+
+### Fixed
+
+- Module items land in source order when a deploy moves them. Each item now waits for the item before it to be written, whether that item is created or updated, and for every module item being removed, because Canvas shifts an item's neighbors whenever it places one.
+
 ## 0.8.14 - 2026-11-09
 
 ### Added

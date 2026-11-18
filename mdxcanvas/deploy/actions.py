@@ -126,6 +126,10 @@ class HandlerSpec:
     modified_action: ModifiedAction = ModifiedAction.UPDATE
     absence_policy: AbsencePolicy = AbsencePolicy.DELETE
     prepare_cycle_breaker: CycleBreaker | None = None
+    # Canvas places the resource at a position among its siblings and shifts them to make
+    # room, so it must wait for the resources it references to be written, created or
+    # updated, and for every deletion of its own type.
+    positional: bool = False
 
 
 def validate_handlers(handlers: Mapping[str, HandlerSpec]):
