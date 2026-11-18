@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- A quiz's point total is recomputed once after all of its questions are written, so a deploy that changes a published quiz's questions no longer leaves `points_possible` at the old value. The question-order step does it, and the planner now reapplies that step whenever the quiz or any of its questions changed and runs it after all of them. Individual questions no longer unpublish and republish the quiz, which raced when questions deployed concurrently.
+- A quiz's point total is recomputed once after all of its questions are written, so a deploy that changes a published quiz's questions no longer leaves `points_possible` at the old value. The question-order step does it. A changed quiz question is now a replacement that is edited in place, so the planner reapplies the order step after it. Individual questions no longer unpublish and republish the quiz, which raced when questions deployed concurrently.
 
 ## 0.8.14 - 2026-11-09
 

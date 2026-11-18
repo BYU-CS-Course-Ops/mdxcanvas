@@ -111,8 +111,8 @@ def deploy_quiz_question_order(course: Course, order_data: QuizQuestionOrderData
     """
     Reorder quiz questions, then make Canvas recompute the quiz's point total.
 
-    This runs once per quiz, after the quiz and every one of its questions, and
-    whenever any of them changed. Canvas keeps a quiz's points_possible as a
+    This runs once per quiz, after every question written in the deploy, and
+    whenever a question was added, removed, changed or reordered. Canvas keeps a quiz's points_possible as a
     stored value that only a save recomputes: on an unpublished quiz any save
     does it; on a published quiz a save changes nothing, and only unpublishing
     and republishing does. A quiz with submissions cannot be unpublished, so

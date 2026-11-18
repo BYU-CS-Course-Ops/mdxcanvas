@@ -62,7 +62,7 @@ def test_replacement_create_and_untrack_policies_are_data_driven():
         if enum_value(spec.absence_policy).lower() == "untrack"
     }
 
-    assert replacement_create == {"file", "zip", "mermaid", "quarto-slides"}
+    assert replacement_create == {"file", "zip", "mermaid", "quarto-slides", "quiz_question"}
     assert untracked == {
         "course_settings",
         "navigation",

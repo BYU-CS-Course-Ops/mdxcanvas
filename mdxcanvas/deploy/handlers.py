@@ -106,7 +106,9 @@ def build_builtin_handlers() -> dict[str, HandlerSpec]:
         "syllabus": deploy_syllabus,
         "zip": deploy_zip,
     }
-    replacements = {"file", "zip", "mermaid", "quarto-slides"}
+    # A changed quiz question is a replacement so that its quiz's question order,
+    # which recomputes the quiz's point total, is reapplied after it.
+    replacements = {"file", "zip", "mermaid", "quarto-slides", "quiz_question"}
     untracked = {"course_settings", "navigation", "quiz_question_order", "syllabus"}
     breakers = {
         "assignment": _breaker("description"),
@@ -124,7 +126,6 @@ def build_builtin_handlers() -> dict[str, HandlerSpec]:
             modified_action=ModifiedAction.CREATE if resource_type in replacements else ModifiedAction.UPDATE,
             absence_policy=AbsencePolicy.UNTRACK if resource_type in untracked else AbsencePolicy.DELETE,
             prepare_cycle_breaker=breakers.get(resource_type),
-            reapply_on_dependency_change=resource_type == "quiz_question_order",
         )
     validate_handlers(handlers)
     return handlers

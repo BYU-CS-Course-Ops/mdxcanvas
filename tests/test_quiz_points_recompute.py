@@ -3,10 +3,10 @@
 Canvas stores points_possible and recomputes it only on a save. On a published
 quiz a save that changes nothing is ignored, so only unpublishing and
 republishing recomputes. Questions deploy concurrently, so the recompute is
-the job of the question-order step, which the planner reapplies whenever the
-quiz or any of its questions changed and runs after all of them.
+the job of the question-order step. A changed question is a replacement, edited
+in place, so the planner reapplies the order step after it.
 """
-from mdxcanvas.deploy.actions import Update
+from mdxcanvas.deploy.actions import Create, Update
 from mdxcanvas.deploy.checksums import compute_md5
 from mdxcanvas.deploy.handlers import build_builtin_handlers
 from mdxcanvas.deploy.planner import plan_deployment
@@ -69,15 +69,27 @@ def test_a_changed_question_replans_the_order_step_after_it(tmp_path):
     assert order.predecessors == {"action:quiz_question|hw|q1"}
 
 
-def test_a_changed_quiz_replans_the_order_step_after_the_quiz(tmp_path):
+def test_a_changed_question_is_rewritten_in_place(tmp_path):
     resources = quiz_with_two_questions()
     ledger = tracked(resources, tmp_path)
-    ledger["resources"]["quiz|hw"]["checksum"] = "old"
+    ledger["resources"]["quiz_question|hw|q1"]["checksum"] = "old"
 
     plan = plan_deployment(resources, ledger, build_builtin_handlers(), tmp_path)
 
-    assert {c.key for c in plan.expected_changes} == {("quiz", "hw"), ("quiz_question_order", "hw|order")}
-    assert node(plan, "quiz_question_order", "hw|order").predecessors == {"action:quiz|hw"}
+    question = node(plan, "quiz_question", "hw|q1").action
+    assert isinstance(question, Create)
+    assert question.resource["data"]["canvas_id"] == "canvas-hw|q1"
+    assert "canvas_id" not in resources[("quiz_question", "hw|q1")]["data"]
+
+
+def test_a_new_question_has_no_canvas_id(tmp_path):
+    resources = quiz_with_two_questions()
+    ledger = tracked(resources, tmp_path)
+    del ledger["resources"]["quiz_question|hw|q1"]
+
+    plan = plan_deployment(resources, ledger, build_builtin_handlers(), tmp_path)
+
+    assert "canvas_id" not in node(plan, "quiz_question", "hw|q1").action.resource["data"]
 
 
 def test_an_unchanged_quiz_plans_nothing(tmp_path):

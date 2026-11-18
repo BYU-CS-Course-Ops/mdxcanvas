@@ -66,6 +66,10 @@ def plan_deployment(resources: Mapping[tuple[str, str], CanvasResource], ledger:
             resource = desired[key]
             checksum = checksums[key]
             if transition is Transition.NEW or spec.modified_action is ModifiedAction.CREATE:
+                if transition is Transition.MODIFIED:
+                    # A replacement keeps its Canvas object where the deployer edits in place.
+                    resource = deepcopy(resource)
+                    resource["data"]["canvas_id"] = decoded[key]["canvas_info"]["id"]
                 actions[key] = Create(resource, checksum)
             else:
                 actions[key] = Update(resource, checksum)
@@ -95,29 +99,19 @@ def plan_deployment(resources: Mapping[tuple[str, str], CanvasResource], ledger:
                 if isinstance(actions[consumer], Create):
                     queue.append(consumer)
 
-    # A finalizing resource is reapplied whenever anything it references is planned.
-    for consumer in sorted(desired):
-        if not handlers[consumer[0]].reapply_on_dependency_change or consumer in transitions:
-            continue
-        if any(producer in actions for producer in dependencies.get(consumer, set())):
-            add(consumer, Transition.MODIFIED)
-
     if not no_cleanup:
         for key in sorted(set(decoded) - set(desired) - referenced):
             if key[0] not in handlers:
                 raise PlanningError(f"Unsupported resource type {key[0]}")
             add(key, Transition.STALE)
 
-    # Action dependency graph: consumers wait only for identity-producing creates,
-    # except a finalizing resource, which waits for every planned dependency.
+    # Action dependency graph: consumers wait only for identity-producing creates.
     predecessors = {key: set() for key in actions}
     for consumer, refs in dependencies.items():
         if consumer not in actions:
             continue
-        waits_for_updates = handlers[consumer[0]].reapply_on_dependency_change
         for producer in refs:
-            action = actions.get(producer)
-            if isinstance(action, Create) or (waits_for_updates and isinstance(action, Update)):
+            if isinstance(actions.get(producer), Create):
                 predecessors[consumer].add(producer)
 
     # Stale children are removed before their stale parents.
