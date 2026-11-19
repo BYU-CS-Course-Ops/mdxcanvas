@@ -10,9 +10,14 @@ from mdxcanvas.erasecanvas.main import main as erasecanvas
 
 CANVAS_API_TOKEN = os.environ.get("CANVAS_API_TOKEN", "")
 
+# These tests erase the course in testing_course_info.json before deploying to it.
+# A token alone does not run them, since many people keep one exported for deploys.
+RUN_CANVAS_TESTS = os.environ.get("MDXCANVAS_RUN_CANVAS_TESTS") == "1"
+
 pytestmark = pytest.mark.skipif(
-    not CANVAS_API_TOKEN,
-    reason="CANVAS_API_TOKEN is required for Canvas integration tests",
+    not (CANVAS_API_TOKEN and RUN_CANVAS_TESTS),
+    reason="Canvas integration tests erase the test course; "
+           "set MDXCANVAS_RUN_CANVAS_TESTS=1 and CANVAS_API_TOKEN to run them",
 )
 
 
