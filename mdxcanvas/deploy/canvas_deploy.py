@@ -54,6 +54,13 @@ def _reference_requests(resource: CanvasResource) -> list[tuple[str, str, str, s
     return list(iter_keys(json.dumps(resource["data"])))
 
 
+def _dependencies(resource: CanvasResource) -> list[list[str]]:
+    return [list(key) for key in sorted({
+        (resource_type, resource_id)
+        for _token, resource_type, resource_id, _field in _reference_requests(resource)
+    })]
+
+
 def _snapshot_execution_inputs(
         action: Create | Update,
         raw_key: str,
@@ -152,6 +159,23 @@ def deploy_to_canvas(course: Course, timezone: str,
 
     report.set_course_url(_course_url(course))
     writable = deepcopy(canonical)
+    planned_keys = {node.planned_change.key for node in plan.nodes}
+    metadata_changed = False
+    for key, resource in resources.items():
+        if key in planned_keys:
+            continue
+        entry = writable["resources"][_raw_key(key)]
+        dependencies = _dependencies(resource)
+        if entry.get("dependencies") != dependencies:
+            entry["dependencies"] = dependencies
+            metadata_changed = True
+    # Keep dependency-triggered work retryable if its producer succeeds but it fails or is interrupted.
+    for node in plan.nodes:
+        if isinstance(node.action, (Create, Update)):
+            entry = writable["resources"].get(_raw_key(node.planned_change.key))
+            if entry and entry.get("checksum") == node.action.checksum:
+                entry["checksum"] = None
+                metadata_changed = True
     context = DeploymentContext(course, deploy_root, timezone)
     lock = threading.Lock()
     completed: dict[str, tuple[Outcome, DeploymentResult | None]] = {}
@@ -195,7 +219,14 @@ def deploy_to_canvas(course: Course, timezone: str,
 
         canvas_info = deepcopy(result.canvas_info)
         recorded_result = DeploymentResult(canvas_info, result.url, result.review)
-        entry = {"checksum": action.checksum, "canvas_info": canvas_info}
+        # Canvas may derive resource state from existing dependencies (e.g. quiz totals
+        # from questions). Persist dependencies so future deployments can run after
+        # old dependencies are deleted, rather than observing stale Canvas state.
+        entry = {
+            "checksum": action.checksum,
+            "canvas_info": canvas_info,
+            "dependencies": _dependencies(resources[resource_key]),
+        }
         with lock:
             writable["resources"][raw_key] = entry
             completed[node.key] = outcome, recorded_result
@@ -241,6 +272,21 @@ def deploy_to_canvas(course: Course, timezone: str,
         report.add_deployment_error("deployment", error)
         execution = None
 
+    # A partial cycle must retry as a group: even successful first passes can
+    # contain stale links. Keep identities, but certify checksums only after all refreshes succeed.
+    finalized = {
+        node.planned_change.key for node in plan.nodes
+        if isinstance(node.action, (Create, Update))
+        and node.action.checksum is not None and node.key in completed
+    }
+    for group in plan.cycle_groups:
+        if not group <= finalized:
+            for key in group:
+                entry = writable["resources"].get(_raw_key(key))
+                if entry is not None:
+                    entry["checksum"] = None
+                    metadata_changed = True
+
     by_key = {node.key: node for node in plan.nodes}
     for key in sorted(completed, key=lambda item: by_key[item].plan_order):
         node = by_key[key]
@@ -268,7 +314,7 @@ def deploy_to_canvas(course: Course, timezone: str,
             status=status, action=_action_kind(node.action),
         )
 
-    if migration_changed or completed or interrupted is not None or (execution_started and coordinator_failed):
+    if metadata_changed or migration_changed or completed or interrupted is not None or (execution_started and coordinator_failed):
         try:
             store.save(writable)
         except KeyboardInterrupt as error:

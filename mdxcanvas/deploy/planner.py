@@ -4,10 +4,14 @@ from pathlib import Path
 from typing import Mapping
 
 from .actions import (ActionNode, AbsencePolicy, Create, Delete, DeploymentPlan, HandlerSpec,
-                      ModifiedAction, PlannedChange, Transition, Update)
+                      ModifiedAction, PlannedChange, ResourceKey, Transition, Update)
 from .algorithms import tarjan_scc
 from .checksums import compute_md5
 from ..resources import CanvasResource, iter_keys
+
+
+# These exported values can change even when the producer keeps its Canvas identity.
+UPDATE_PROPAGATING_FIELDS = frozenset({"title", "uri", "url", "page_url"})
 
 
 class PlanningError(ValueError):
@@ -17,7 +21,7 @@ class PlanningError(ValueError):
 
 
 def _references(resource: CanvasResource):
-    return list(iter_keys(json.dumps(resource)))
+    return list(iter_keys(json.dumps(resource["data"])))
 
 
 def plan_deployment(resources: Mapping[tuple[str, str], CanvasResource], ledger: Mapping,
@@ -27,13 +31,19 @@ def plan_deployment(resources: Mapping[tuple[str, str], CanvasResource], ledger:
     entries = ledger["resources"]
     decoded = {tuple(raw.split("|", 1)): deepcopy(entry) for raw, entry in entries.items()}
     dependencies: dict[tuple[str, str], set[tuple[str, str]]] = {}
+    update_dependencies: dict[ResourceKey, set[ResourceKey]] = {}
     referenced = set()
 
     for key, resource in desired.items():
+        if not isinstance(resource.get("reapply_on_update", False), bool):
+            raise PlanningError("reapply_on_update must be a boolean", resource=resource)
         dependencies[key] = set()
+        update_dependencies[key] = set()
         for _token, resource_type, resource_id, field in _references(resource):
             dependency = resource_type, resource_id
             dependencies[key].add(dependency)
+            if resource.get("reapply_on_update", False) or field in UPDATE_PROPAGATING_FIELDS:
+                update_dependencies[key].add(dependency)
             referenced.add(dependency)
             if dependency not in desired:
                 info = decoded.get(dependency, {}).get("canvas_info")
@@ -85,30 +95,39 @@ def plan_deployment(resources: Mapping[tuple[str, str], CanvasResource], ledger:
             if old.get("checksum") != checksums[key]:
                 add(key, Transition.MODIFIED)
 
-    # Replacement creates force every direct and transitive consumer to be reapplied.
-    queue = [key for key, action in actions.items() if isinstance(action, Create)]
-    while queue:
-        producer = queue.pop(0)
-        for consumer in sorted(desired):
-            if producer in dependencies.get(consumer, set()) and consumer not in transitions:
-                add(consumer, Transition.MODIFIED)
-                if isinstance(actions[consumer], Create):
-                    queue.append(consumer)
-
     if not no_cleanup:
         for key in sorted(set(decoded) - set(desired) - referenced):
             if key[0] not in handlers:
                 raise PlanningError(f"Unsupported resource type {key[0]}")
             add(key, Transition.STALE)
 
-    # Action dependency graph: consumers wait only for identity-producing creates.
+    # Creates invalidate all references. Updates propagate across opted-in or mutable-field edges.
+    queue = list(actions)
+    while queue:
+        producer = queue.pop(0)
+        for consumer in sorted(desired):
+            invalidated = producer in dependencies[consumer] and (
+                isinstance(actions[producer], Create)
+                or (isinstance(actions[producer], Update) and producer in update_dependencies[consumer])
+            )
+            if invalidated and consumer not in transitions:
+                add(consumer, Transition.MODIFIED)
+                queue.append(consumer)
+
+    # Scheduled consumers wait for all referenced actions, including in-place updates.
     predecessors = {key: set() for key in actions}
     for consumer, refs in dependencies.items():
         if consumer not in actions:
             continue
         for producer in refs:
-            if isinstance(actions.get(producer), Create):
+            if producer in actions:
                 predecessors[consumer].add(producer)
+        # Removed references no longer appear in data, but their deletions must finish first.
+        previous = decoded.get(consumer, {}).get("dependencies", [])
+        predecessors[consumer].update(
+            tuple(producer) for producer in previous
+            if isinstance(actions.get(tuple(producer)), Delete)
+        )
 
     # Stale children are removed before their stale parents.
     stale_by_canvas_id = {}
@@ -125,7 +144,7 @@ def plan_deployment(resources: Mapping[tuple[str, str], CanvasResource], ledger:
                 predecessors[parent_key].add(child)
 
     cyclic = []
-    graph = {key: set(predecessors[key]) for key in actions if not isinstance(actions[key], Delete)}
+    graph = {key: set(predecessors[key]) for key in actions}
     for component in tarjan_scc(graph):
         if len(component) > 1 or (component and component[0] in graph.get(component[0], set())):
             cyclic.append(sorted(component))
@@ -134,47 +153,61 @@ def plan_deployment(resources: Mapping[tuple[str, str], CanvasResource], ledger:
     cycle_nodes = []
     for component in cyclic:
         for key in component:
-            if transitions[key].change is not Transition.NEW or not isinstance(actions[key], Create):
-                raise PlanningError(f"Unsupported replacement-create dependency cycle: {component}")
-            if handlers[key[0]].prepare_cycle_breaker is None:
+            action = actions[key]
+            if isinstance(action, Delete) or (
+                isinstance(action, Create) and transitions[key].change is not Transition.NEW
+            ):
+                raise PlanningError(f"Unsupported replacement-create or deletion dependency cycle: {component}")
+            if isinstance(action, Create) and handlers[key[0]].prepare_cycle_breaker is None:
                 raise PlanningError(f"No cycle breaker for {key[0]} {key[1]}")
-        shells = []
+        first_keys = {key: f"first:{key[0]}|{key[1]}" for key in component}
+        new_keys = {key for key in component if isinstance(actions[key], Create)}
         for key in component:
-            try:
-                shell = handlers[key[0]].prepare_cycle_breaker(desired[key])
-            except Exception as error:
-                raise PlanningError(
-                    f"Cycle breaker failed for {key[0]} {key[1]} ({type(error).__name__})"
-                ) from error
-            shell_key = f"shell:{key[0]}|{key[1]}"
-            shell_change = transitions[key]
+            change = transitions[key]
             external = {dep for dep in predecessors[key] if dep not in component}
-            shells.append((key, shell_key, shell, shell_change, external))
-        shell_keys = frozenset(item[1] for item in shells)
-        for key, shell_key, shell, change, external in shells:
-            cycle_nodes.append((shell_key, external, Create(shell, compute_md5(shell["data"], deploy_root)), change))
+            if key in new_keys:
+                try:
+                    shell = handlers[key[0]].prepare_cycle_breaker(desired[key])
+                except Exception as error:
+                    raise PlanningError(
+                        f"Cycle breaker failed for {key[0]} {key[1]} ({type(error).__name__})"
+                    ) from error
+                # A shell must not need identities that this cycle has yet to create.
+                if any((rtype, rid) in component for _, rtype, rid, _ in _references(shell)):
+                    raise PlanningError(f"Cycle breaker left internal references in {key[0]} {key[1]}")
+                first_action = Create(shell, None)
+            else:
+                # Existing identities allow full updates, once all new identities exist.
+                external.update(first_keys[producer] for producer in new_keys)
+                first_action = Update(desired[key], None)
+            cycle_nodes.append((first_keys[key], external, first_action, change))
             full_change = PlannedChange(Transition.MODIFIED, key[0], key[1], change.source)
             full_key = f"full:{key[0]}|{key[1]}"
-            cycle_nodes.append((full_key, shell_keys, Update(desired[key], checksums[key]), full_change))
+            cycle_nodes.append((full_key, set(first_keys.values()), Update(desired[key], checksums[key]), full_change))
             expanded.add(key)
 
     raw_nodes = []
     expected = []
     key_to_node = {key: f"action:{key[0]}|{key[1]}" for key in actions if key not in expanded}
-    for node_key, _deps, _action, change in cycle_nodes:
-        if node_key.startswith("shell:"):
-            key_to_node[change.key] = node_key
+    def dependency_node(producer: ResourceKey | str) -> str:
+        if isinstance(producer, str):
+            return producer
+        # External consumers wait for the full update, not just a cycle-breaking shell.
+        if producer in expanded:
+            return f"full:{producer[0]}|{producer[1]}"
+        return key_to_node[producer]
+
     for key in sorted(actions, key=lambda item: list(transitions).index(item)):
         if key in expanded:
             continue
         change = transitions[key]
         expected.append(change)
-        raw_nodes.append((key_to_node[key], {key_to_node[p] for p in predecessors[key] if p in key_to_node}, actions[key], change))
+        raw_nodes.append((key_to_node[key], {dependency_node(p) for p in predecessors[key]}, actions[key], change))
     for node_key, deps, action, change in cycle_nodes:
         expected.append(change)
-        converted = {key_to_node.get(dep, dep if isinstance(dep, str) else f"action:{dep[0]}|{dep[1]}") for dep in deps}
+        converted = {dependency_node(dep) for dep in deps}
         raw_nodes.append((node_key, converted, action, change))
 
     nodes = tuple(ActionNode(key, frozenset(deps), index, action, change)
                   for index, (key, deps, action, change) in enumerate(raw_nodes))
-    return DeploymentPlan(nodes, tuple(expected))
+    return DeploymentPlan(nodes, tuple(expected), tuple(frozenset(component) for component in cyclic))

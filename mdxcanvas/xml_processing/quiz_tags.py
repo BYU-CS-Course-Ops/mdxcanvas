@@ -139,6 +139,7 @@ class QuizTagProcessor:
             self._resources.add_resource(CanvasResource(
                 type='quiz_question_order',
                 id=f'{quiz_rid}|order',
+                reapply_on_update=True,
                 data={
                     'quiz_id': get_key('quiz', quiz_rid, 'id'),
                     'order': order_items

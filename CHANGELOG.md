@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.8.15 - 2026-11-20
+
+### Changed
+
+- A resource can now indicate `reapply_on_update=True` which will cause the resource to be updated if any of its dependencies are updated.
+  - Before this release, resources were updated only if a dependency was created.
+- Quiz question-order postprocessing now runs after related questions are created,
+  updated, or deleted. 
+  - This fixes a race-condition between updating questions and setting the total points for a quiz.
+- Update states are now ordered before referring resources in the deployment (before it was just Create states that came before)
+  - This should address the module-item ordering problem
+- Changes to `title`, `uri`, `page_url` now trigger updates in resources that use those attributes in a reference.
+  - This addresses a bug with stale `course-link` displayed-text updates
+- Bump `pymarkdown` version to `11.0.2` to address a security vulnerability
+
+### Upgrade note
+
+- We now track resource dependencies in the ledger. This is so resources that must update when a dependency is deleted—and must run AFTER the deletion has run in Canvas—can identify the specific resource deletion events they are waiting on.
+  - Errors cause by this lack of information before this release will have to be addressed manually.
+
 ## 0.8.14 - 2026-11-09
 
 ### Added

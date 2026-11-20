@@ -3,6 +3,11 @@ import logging
 import pytest
 from bs4 import BeautifulSoup
 
+from mdxcanvas.deploy.checksums import compute_md5
+from mdxcanvas.deploy.handlers import build_builtin_handlers
+from mdxcanvas.deploy.planner import plan_deployment
+from mdxcanvas.resources import ResourceManager
+from mdxcanvas.xml_processing.quiz_tags import QuizTagProcessor
 from mdxcanvas.xml_processing.quiz_questions import (
     parse_fill_in_multiple_blanks_question,
     parse_fill_in_the_blank_question,
@@ -17,6 +22,45 @@ from mdxcanvas.xml_processing.quiz_questions import (
 
 def _parse_question(xml: str):
     return BeautifulSoup(xml, 'html.parser').find('question')
+
+
+def test_question_change_reapplies_only_its_quiz_postprocessor(tmp_path):
+    def parse(question_text: str) -> ResourceManager:
+        resources = ResourceManager()
+        for quiz_id, text in [("first", question_text), ("second", "Unchanged")]:
+            tag = BeautifulSoup(f'''
+                <quiz id="{quiz_id}" title="{quiz_id}">
+                    <questions>
+                        <question id="q1" type="true-false" answer="true">{text}</question>
+                        <question id="q2" type="essay">Explain.</question>
+                    </questions>
+                </quiz>
+            ''', 'html.parser').find('quiz')
+            QuizTagProcessor(resources)(tag)
+        return resources
+
+    previous = parse("Original")
+    ledger = {
+        "resources": {
+            f"{rtype}|{rid}": {
+                "checksum": compute_md5(value["data"], tmp_path),
+                "canvas_info": {"id": f"canvas-{rid}"},
+            }
+            for (rtype, rid), value in previous.items()
+        },
+    }
+    resources = parse("Changed")
+    order_key = ("quiz_question_order", "first|order")
+    assert resources[order_key]["reapply_on_update"] is True
+    assert compute_md5(resources[order_key]["data"], tmp_path) == ledger["resources"][
+        "quiz_question_order|first|order"
+    ]["checksum"]
+
+    plan = plan_deployment(resources, ledger, build_builtin_handlers(), tmp_path)
+
+    assert {change.key for change in plan.expected_changes} == {
+        ("quiz_question", "first|q1"), order_key,
+    }
 
 
 def test_multiple_choice_answer_comments_are_included():

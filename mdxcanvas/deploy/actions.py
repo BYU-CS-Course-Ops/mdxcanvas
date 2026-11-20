@@ -60,13 +60,13 @@ class PlannedChange:
 @dataclass(frozen=True)
 class Create:
     resource: CanvasResource
-    checksum: str
+    checksum: str | None  # None marks an intermediate cycle pass, not a completed deployment.
 
 
 @dataclass(frozen=True)
 class Update:
     resource: CanvasResource
-    checksum: str
+    checksum: str | None  # None marks an intermediate cycle pass, not a completed deployment.
 
 
 @dataclass(frozen=True)
@@ -90,6 +90,7 @@ class ActionNode:
 class DeploymentPlan:
     nodes: tuple[ActionNode, ...]
     expected_changes: tuple[PlannedChange, ...]
+    cycle_groups: tuple[frozenset[ResourceKey], ...] = ()
 
 
 @dataclass(frozen=True)
