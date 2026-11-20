@@ -4,11 +4,10 @@
 
 ### Changed
 
+- A resource can now indicate `reapply_on_update=True` which will cause the resource to be updated if any of its dependencies are updated.
+  - Before this release, resources were updated only if a dependency was created.
 - Quiz question-order postprocessing now runs after related questions are created,
-  updated, or deleted. Resources can opt into propagation of dependency updates
-  with `reapply_on_update=True`. Dependencies are extracted from `data` references
-  and stored in the deployment ledger so removed dependencies are deleted before
-  their consumers are reapplied.
+  updated, or deleted. 
   - This fixes a race-condition between updating questions and setting the total points for a quiz.
 - Update states are now ordered before referring resources in the deployment (before it was just Create states that came before)
   - This should address the module-item ordering problem
@@ -17,10 +16,8 @@
   
 ### Upgrade note
 
-- The first non-dry-run deployment records dependency lists for existing resources,
-  even when their content is unchanged. This may save the ledger without deploying
-  any resources. Ordering after deletions requires previously recorded dependencies:
-  run a deployment before removing questions to establish that history. Older ledgers remain supported; dry runs do not seed this metadata.
+- We now track resource dependencies in the ledger. This is so resources that must update when a dependency is deleted—and must run AFTER the deletion has run in Canvas—can identify the specific resource deletion events they are waiting on.
+  - Errors cause by this lack of information before this release will have to be addressed manually.
 
 ## 0.8.14 - 2026-11-09
 
