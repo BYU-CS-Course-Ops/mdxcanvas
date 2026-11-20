@@ -46,6 +46,15 @@ def _validate(envelope: Mapping):
         checksum = entry.get("checksum")
         if checksum is not None and not isinstance(checksum, str):
             raise LedgerError(f"Ledger checksum for {raw_key!r} must be a string")
+        dependencies = entry.get("dependencies", [])
+        if not isinstance(dependencies, list) or any(
+            not isinstance(dependency, (list, tuple)) or len(dependency) != 2
+            or not all(isinstance(part, str) for part in dependency)
+            or dependency[0] not in KNOWN_TYPES
+            or (not dependency[1] and dependency[0] != "course_settings")
+            for dependency in dependencies
+        ):
+            raise LedgerError(f"Ledger dependencies for {raw_key!r} must contain resource (type, id) pairs")
         canvas_info = entry.get("canvas_info")
         if not isinstance(canvas_info, Mapping):
             raise LedgerError(f"Ledger canvas_info for {raw_key!r} must be a mapping")

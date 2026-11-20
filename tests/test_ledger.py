@@ -87,6 +87,32 @@ def test_07_migration_normalizes_existing_canonical_parent_id_to_string():
     ] == ["20", "30", "40"]
 
 
+@pytest.mark.parametrize("dependencies", [[], [["page", "producer"]], [("page", "producer")]])
+def test_ledger_preserves_optional_dependencies(dependencies):
+    value = entry()
+    value["dependencies"] = dependencies
+    loaded = canonical({"page|consumer": value})
+    original = copy.deepcopy(loaded)
+
+    migrated, changed = migrate_ledger(loaded)
+
+    assert not changed
+    assert migrated == original
+    assert loaded == original
+
+
+@pytest.mark.parametrize("dependencies", [
+    None, "page|producer", {}, ["page|producer"], [["page"]],
+    [["page", "id", "extra"]], [["unknown", "id"]], [["page", ""]], [["page", 1]],
+])
+def test_ledger_rejects_malformed_dependencies(dependencies):
+    value = entry()
+    value["dependencies"] = dependencies
+
+    with pytest.raises(ValueError, match="dependencies"):
+        migrate_ledger(canonical({"page|consumer": value}))
+
+
 def test_canonical_08_is_validated_without_mutating_input():
     loaded = canonical({
         "module_item|module|item": entry(parent={"type": "module", "id": "20"}),

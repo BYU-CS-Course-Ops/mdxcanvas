@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.8.15 - 2026-11-20
+
+### Changed
+
+- Quiz question-order postprocessing now runs after related questions are created,
+  updated, or deleted. Resources can opt into propagation of dependency updates
+  with `reapply_on_update=True`. Dependencies are extracted from `data` references
+  and stored in the deployment ledger so removed dependencies are deleted before
+  their consumers are reapplied.
+
+### Upgrade note
+
+- The first non-dry-run deployment records dependency lists for existing resources,
+  even when their content is unchanged. This may save the ledger without deploying
+  any resources. Ordering after deletions requires previously recorded dependencies:
+  run a deployment before removing questions to establish that history. Older ledgers remain supported; dry runs do not seed this metadata.
+
 ## 0.8.14 - 2026-11-09
 
 ### Added

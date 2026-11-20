@@ -112,6 +112,120 @@ def test_newer_ledger_stops_before_copy_planning_execution_or_save(monkeypatch, 
     assert store.saves == []
 
 
+@pytest.mark.parametrize("dryrun", [False, True])
+def test_unchanged_legacy_resources_seed_dependency_metadata_without_deployment(monkeypatch, tmp_path, dryrun):
+    resources = {
+        ("page", rid): resource("page", rid, {"title": rid})
+        for rid in ["producer", "consumer"]
+    }
+    resources[("page", "consumer")]["data"]["body"] = "__@@page||producer||id@@__"
+    store = Store({"mdxcanvas_version": mdxcanvas.__version__, "resources": {
+        f"{rtype}|{rid}": {"checksum": compute_md5(value["data"], tmp_path), "canvas_info": {"id": rid}}
+        for (rtype, rid), value in resources.items()
+    }})
+    install(monkeypatch, store, build_builtin_handlers())
+
+    report = deploy_to_canvas(object(), "UTC", resources, DeploymentReport(), tmp_path, dryrun=dryrun)
+
+    assert report.report["deployment"]["errors"] == []
+    assert report.report["deployment"]["changes_made"] == []
+    assert len(store.saves) == (0 if dryrun else 1)
+    if not dryrun:
+        assert store.saves[0]["resources"]["page|consumer"]["dependencies"] == [["page", "producer"]]
+        store.envelope = store.saves[-1]
+        deploy_to_canvas(object(), "UTC", resources, DeploymentReport(), tmp_path)
+        assert len(store.saves) == 1
+
+
+@pytest.mark.parametrize("failure", [None, "delete", "consumer"])
+def test_persisted_dependency_deletion_runs_before_postprocessor(monkeypatch, tmp_path, failure):
+    resources = {
+        ("page", rid): resource("page", rid, {"title": rid})
+        for rid in ["producer", "consumer"]
+    }
+    resources[("page", "consumer")]["data"]["body"] = "__@@page||producer||id@@__"
+    store = Store({"mdxcanvas_version": mdxcanvas.__version__, "resources": {}})
+    calls = []
+
+    def create(_context, value):
+        return result(value)
+
+    def update(_context, value, _info):
+        calls.append(value["id"])
+        if failure == "consumer":
+            raise RuntimeError("Consumer failed")
+        return result(value)
+
+    def delete(_context, rid, _info):
+        calls.append("delete")
+        if failure == "delete":
+            raise RuntimeError("Delete failed")
+        return True
+
+    install(monkeypatch, store, {"page": HandlerSpec(create=create, update=update, delete=delete)})
+    first = deploy_to_canvas(object(), "UTC", resources, DeploymentReport(), tmp_path)
+    assert first.report["deployment"]["errors"] == []
+    store.envelope = deepcopy(store.saves[-1])
+    assert store.envelope["resources"]["page|consumer"]["dependencies"] == [["page", "producer"]]
+    del resources[("page", "producer")]
+    resources[("page", "consumer")]["data"]["body"] = "Removed"
+    calls.clear()
+
+    report = deploy_to_canvas(object(), "UTC", resources, DeploymentReport(), tmp_path)
+
+    assert calls == (["delete"] if failure == "delete" else ["delete", "consumer"])
+    assert bool(report.report["deployment"]["errors"]) == (failure is not None)
+    saved = store.saves[-1]["resources"]
+    assert saved["page|consumer"]["dependencies"] == ([] if failure is None else [["page", "producer"]])
+    assert ("page|producer" in saved) == (failure == "delete")
+    if failure is not None:
+        store.envelope = deepcopy(store.saves[-1])
+        failure = None
+        calls.clear()
+        retry = deploy_to_canvas(object(), "UTC", resources, DeploymentReport(), tmp_path)
+        assert retry.report["deployment"]["errors"] == []
+        assert calls[-1] == "consumer"
+        assert store.saves[-1]["resources"]["page|consumer"]["dependencies"] == []
+
+
+def test_failed_update_trigger_retries_after_producer_already_succeeded(monkeypatch, tmp_path):
+    resources = {
+        ("page", rid): resource("page", rid, {"title": rid})
+        for rid in ["producer", "consumer"]
+    }
+    resources[("page", "consumer")]["data"]["body"] = "__@@page||producer||id@@__"
+    resources[("page", "consumer")]["reapply_on_update"] = True
+    store = Store({"mdxcanvas_version": mdxcanvas.__version__, "resources": {
+        f"{rtype}|{rid}": {"checksum": compute_md5(value["data"], tmp_path), "canvas_info": {"id": rid}}
+        for (rtype, rid), value in resources.items()
+    }})
+    resources[("page", "producer")]["data"]["title"] = "Changed"
+    fail_consumer = True
+    calls = []
+
+    def update(_context, value, _info):
+        calls.append(value["id"])
+        if value["id"] == "consumer" and fail_consumer:
+            raise RuntimeError("Postprocessing failed")
+        return result(value)
+
+    install(monkeypatch, store, {"page": HandlerSpec(create=lambda *_args: None, update=update, delete=lambda *_args: True)})
+    report = deploy_to_canvas(object(), "UTC", resources, DeploymentReport(), tmp_path)
+
+    assert report.report["deployment"]["errors"]
+    assert calls == ["producer", "consumer"]
+    assert store.saves[-1]["resources"]["page|consumer"]["checksum"] is None
+    store.envelope = deepcopy(store.saves[-1])
+    fail_consumer = False
+    calls.clear()
+
+    retry = deploy_to_canvas(object(), "UTC", resources, DeploymentReport(), tmp_path)
+
+    assert not retry.report["deployment"]["errors"]
+    assert calls == ["consumer"]
+    assert store.saves[-1]["resources"]["page|consumer"]["dependencies"] == [["page", "producer"]]
+
+
 def test_delete_already_absent_and_untrack_outcomes_follow_child_before_parent(monkeypatch, tmp_path):
     calls = []
     handlers = build_builtin_handlers()
@@ -597,10 +711,12 @@ def test_mixed_page_syllabus_cycle_runs_shells_first_and_persists_full_results(
     assert saved["page|page"] == {
         "checksum": compute_md5(resources[("page", "page")]["data"], tmp_path),
         "canvas_info": {"id": "canvas-page"},
+        "dependencies": [["syllabus", "syllabus"]],
     }
     assert saved["syllabus|syllabus"] == {
         "checksum": compute_md5(resources[("syllabus", "syllabus")]["data"], tmp_path),
         "canvas_info": {"id": "canvas-syllabus"},
+        "dependencies": [["page", "page"]],
     }
 
 

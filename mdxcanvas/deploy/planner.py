@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Mapping
 
 from .actions import (ActionNode, AbsencePolicy, Create, Delete, DeploymentPlan, HandlerSpec,
-                      ModifiedAction, PlannedChange, Transition, Update)
+                      ModifiedAction, PlannedChange, ResourceKey, Transition, Update)
 from .algorithms import tarjan_scc
 from .checksums import compute_md5
 from ..resources import CanvasResource, iter_keys
@@ -17,7 +17,7 @@ class PlanningError(ValueError):
 
 
 def _references(resource: CanvasResource):
-    return list(iter_keys(json.dumps(resource)))
+    return list(iter_keys(json.dumps(resource["data"])))
 
 
 def plan_deployment(resources: Mapping[tuple[str, str], CanvasResource], ledger: Mapping,
@@ -30,6 +30,8 @@ def plan_deployment(resources: Mapping[tuple[str, str], CanvasResource], ledger:
     referenced = set()
 
     for key, resource in desired.items():
+        if not isinstance(resource.get("reapply_on_update", False), bool):
+            raise PlanningError("reapply_on_update must be a boolean", resource=resource)
         dependencies[key] = set()
         for _token, resource_type, resource_id, field in _references(resource):
             dependency = resource_type, resource_id
@@ -85,30 +87,39 @@ def plan_deployment(resources: Mapping[tuple[str, str], CanvasResource], ledger:
             if old.get("checksum") != checksums[key]:
                 add(key, Transition.MODIFIED)
 
-    # Replacement creates force every direct and transitive consumer to be reapplied.
-    queue = [key for key, action in actions.items() if isinstance(action, Create)]
-    while queue:
-        producer = queue.pop(0)
-        for consumer in sorted(desired):
-            if producer in dependencies.get(consumer, set()) and consumer not in transitions:
-                add(consumer, Transition.MODIFIED)
-                if isinstance(actions[consumer], Create):
-                    queue.append(consumer)
-
     if not no_cleanup:
         for key in sorted(set(decoded) - set(desired) - referenced):
             if key[0] not in handlers:
                 raise PlanningError(f"Unsupported resource type {key[0]}")
             add(key, Transition.STALE)
 
-    # Action dependency graph: consumers wait only for identity-producing creates.
+    # Creates invalidate references; consumers can also opt into update propagation.
+    queue = list(actions)
+    while queue:
+        producer = queue.pop(0)
+        for consumer in sorted(desired):
+            invalidated = producer in dependencies[consumer] and (
+                isinstance(actions[producer], Create)
+                or (isinstance(actions[producer], Update) and desired[consumer].get("reapply_on_update", False))
+            )
+            if invalidated and consumer not in transitions:
+                add(consumer, Transition.MODIFIED)
+                queue.append(consumer)
+
+    # Scheduled consumers wait for all referenced actions, including in-place updates.
     predecessors = {key: set() for key in actions}
     for consumer, refs in dependencies.items():
         if consumer not in actions:
             continue
         for producer in refs:
-            if isinstance(actions.get(producer), Create):
+            if producer in actions:
                 predecessors[consumer].add(producer)
+        # Removed references no longer appear in data, but their deletions must finish first.
+        previous = decoded.get(consumer, {}).get("dependencies", [])
+        predecessors[consumer].update(
+            tuple(producer) for producer in previous
+            if isinstance(actions.get(tuple(producer)), Delete)
+        )
 
     # Stale children are removed before their stale parents.
     stale_by_canvas_id = {}
@@ -125,7 +136,7 @@ def plan_deployment(resources: Mapping[tuple[str, str], CanvasResource], ledger:
                 predecessors[parent_key].add(child)
 
     cyclic = []
-    graph = {key: set(predecessors[key]) for key in actions if not isinstance(actions[key], Delete)}
+    graph = {key: set(predecessors[key]) for key in actions}
     for component in tarjan_scc(graph):
         if len(component) > 1 or (component and component[0] in graph.get(component[0], set())):
             cyclic.append(sorted(component))
@@ -164,15 +175,24 @@ def plan_deployment(resources: Mapping[tuple[str, str], CanvasResource], ledger:
     for node_key, _deps, _action, change in cycle_nodes:
         if node_key.startswith("shell:"):
             key_to_node[change.key] = node_key
+
+    def dependency_node(producer: ResourceKey | str) -> str:
+        if isinstance(producer, str):
+            return producer
+        # External consumers wait for the full update, not just a cycle-breaking shell.
+        if producer in expanded:
+            return f"full:{producer[0]}|{producer[1]}"
+        return key_to_node[producer]
+
     for key in sorted(actions, key=lambda item: list(transitions).index(item)):
         if key in expanded:
             continue
         change = transitions[key]
         expected.append(change)
-        raw_nodes.append((key_to_node[key], {key_to_node[p] for p in predecessors[key] if p in key_to_node}, actions[key], change))
+        raw_nodes.append((key_to_node[key], {dependency_node(p) for p in predecessors[key] if p in key_to_node}, actions[key], change))
     for node_key, deps, action, change in cycle_nodes:
         expected.append(change)
-        converted = {key_to_node.get(dep, dep if isinstance(dep, str) else f"action:{dep[0]}|{dep[1]}") for dep in deps}
+        converted = {dependency_node(dep) for dep in deps}
         raw_nodes.append((node_key, converted, action, change))
 
     nodes = tuple(ActionNode(key, frozenset(deps), index, action, change)

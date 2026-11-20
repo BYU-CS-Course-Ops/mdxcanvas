@@ -118,6 +118,11 @@ class CanvasResource(TypedDict):
     id: str | Any
     data: 'dict | FileData | ZipFileData | QuartoSlidesData | MermaidData | NavigationData | SyllabusData'
     content_path: str
+    # Set True for postprocessing that must run when a resource referenced in data
+    # updates in place, even though its ID and this resource's data remain unchanged
+    # (e.g. quiz question-order postprocessing after question edits). Defaults to False;
+    # this metadata is excluded from the checksum.
+    reapply_on_update: NotRequired[bool]
 
 
 class CourseSettings(TypedDict):
