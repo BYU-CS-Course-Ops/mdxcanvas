@@ -13,7 +13,8 @@
   - This should address the module-item ordering problem
 - Changes to `title`, `uri`, `page_url` now trigger updates in resources that use those attributes in a reference.
   - This addresses a bug with stale `course-link` displayed-text updates
-  
+- Bump `pymarkdown` version to `11.0.2` to address a security vulnerability
+
 ### Upgrade note
 
 - We now track resource dependencies in the ledger. This is so resources that must update when a dependency is deleted—and must run AFTER the deletion has run in Canvas—can identify the specific resource deletion events they are waiting on.
