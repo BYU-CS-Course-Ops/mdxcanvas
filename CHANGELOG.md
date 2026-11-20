@@ -9,8 +9,12 @@
   with `reapply_on_update=True`. Dependencies are extracted from `data` references
   and stored in the deployment ledger so removed dependencies are deleted before
   their consumers are reapplied.
-- This fixes a race-condition between updating questions and setting the total points for a quiz.
-
+  - This fixes a race-condition between updating questions and setting the total points for a quiz.
+- Update states are now ordered before referring resources in the deployment (before it was just Create states that came before)
+  - This should address the module-item ordering problem
+- Changes to `title`, `uri`, `page_url` now trigger updates in resources that use those attributes in a reference.
+  - This addresses a bug with stale `course-link` displayed-text updates
+  
 ### Upgrade note
 
 - The first non-dry-run deployment records dependency lists for existing resources,
