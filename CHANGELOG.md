@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Renaming a page, assignment, quiz, announcement or module now re-sends every resource whose `course-link` shows its title or points at its address, so those links read the new title. An edit that keeps the title re-sends nothing else.
+
 ## 0.8.14 - 2026-11-09
 
 ### Added

@@ -149,3 +149,64 @@ def test_unsupported_or_replacement_create_cycle_fails_before_execution(tmp_path
             build_builtin_handlers(),
             tmp_path,
         )
+
+
+def link_to(page_id):
+    return f'<a href="__@@page||{page_id}||uri@@__">__@@page||{page_id}||title@@__</a>'
+
+
+def tracked_with_titles(resources, tmp_path):
+    ledger = tracked(resources, tmp_path)
+    for (rtype, rid), value in resources.items():
+        ledger["resources"][f"{rtype}|{rid}"]["canvas_info"]["title"] = value["data"]["title"]
+    return ledger
+
+
+def linked_pages():
+    return {
+        ("page", "target"): resource("page", "target", {"title": "Old Title", "body": "x"}),
+        ("page", "linker"): resource("page", "linker", {"title": "Linker", "body": link_to("target")}),
+        ("page", "by-id"): resource("page", "by-id", {"title": "By id", "body": "__@@page||target||id@@__"}),
+    }
+
+
+def test_renaming_a_page_reapplies_the_pages_that_show_its_title_after_it(tmp_path):
+    resources = linked_pages()
+    ledger = tracked_with_titles(resources, tmp_path)
+    resources[("page", "target")] = resource("page", "target", {"title": "New Title", "body": "x"})
+
+    plan = plan_deployment(resources, ledger, build_builtin_handlers(), tmp_path)
+
+    assert public(plan) == [
+        {"change": "modified", "resource_type": "page", "resource_id": "target"},
+        {"change": "modified", "resource_type": "page", "resource_id": "linker"},
+    ]
+    linker = next(node for node in plan.nodes if node.planned_change.resource_id == "linker")
+    assert linker.predecessors == {"action:page|target"}
+
+
+def test_editing_a_page_body_reapplies_nothing_that_links_to_it(tmp_path):
+    resources = linked_pages()
+    ledger = tracked_with_titles(resources, tmp_path)
+    resources[("page", "target")] = resource("page", "target", {"title": "Old Title", "body": "edited"})
+
+    plan = plan_deployment(resources, ledger, build_builtin_handlers(), tmp_path)
+
+    assert public(plan) == [
+        {"change": "modified", "resource_type": "page", "resource_id": "target"},
+    ]
+
+
+def test_two_updated_pages_that_link_to_each_other_plan_without_a_cycle(tmp_path):
+    resources = {
+        ("page", "a"): resource("page", "a", {"title": "A", "body": link_to("b")}),
+        ("page", "b"): resource("page", "b", {"title": "B", "body": link_to("a")}),
+    }
+    ledger = tracked(resources, tmp_path)
+    resources[("page", "a")] = resource("page", "a", {"title": "A2", "body": link_to("b")})
+    resources[("page", "b")] = resource("page", "b", {"title": "B2", "body": link_to("a")})
+
+    plan = plan_deployment(resources, ledger, build_builtin_handlers(), tmp_path)
+
+    assert [type(node.action) for node in plan.nodes] == [Update, Update]
+    assert all(not node.predecessors for node in plan.nodes)
