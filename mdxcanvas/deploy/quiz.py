@@ -31,6 +31,19 @@ def republish_quiz_after_edit(canvas_quiz, was_published: bool):
         canvas_quiz.edit(quiz={'published': True})
 
 
+def recompute_quiz_points(canvas_quiz: Quiz):
+    """Recompute totals after question changes, only for quizzes without submissions.
+
+    Canvas recomputes an unpublished quiz on save. For a published quiz, a no-op
+    save is ignored, so it must be unpublished and republished instead.
+    """
+    if canvas_quiz.published:
+        canvas_quiz.edit(quiz={'published': False})
+        canvas_quiz.edit(quiz={'published': True})
+    else:
+        canvas_quiz.edit(quiz={'notify_of_update': False})
+
+
 def deploy_quiz(course: Course, quiz_data: dict, _: Path) -> tuple[QuizInfo, tuple[str, str | None] | None]:
     """Deploy quiz settings/metadata only. Questions are deployed separately."""
     info = None
@@ -65,6 +78,11 @@ def deploy_quiz(course: Course, quiz_data: dict, _: Path) -> tuple[QuizInfo, tup
 
 
 def deploy_quiz_question(course: Course, quiz_question_data: dict, _: Path) -> tuple[QuizQuestionInfo, tuple[str, str | None] | None]:
+    """Write a question without changing the shared quiz's published state.
+
+    Questions deploy concurrently; question-order postprocessing recomputes the
+    quiz total once, after all question writes and deletions have finished.
+    """
     if not (canvas_quiz := course.get_quiz(quiz_question_data['quiz_id'])):
         raise ValueError(f'Unable to find quiz {quiz_question_data["quiz_id"]}')
 
@@ -75,21 +93,9 @@ def deploy_quiz_question(course: Course, quiz_question_data: dict, _: Path) -> t
     info = None
     if quiz_question_data.get('canvas_id') and (
             quiz_question := canvas_quiz.get_question(quiz_question_data['canvas_id'])):
-        # Updating existing question
+        # With submissions, preserve the review information for a manual browser save.
         info = get_quiz_review_info(canvas_quiz)
-
-        was_published = False
-
-        if info is None:
-            # No submissions - safe to unpublish, edit, republish
-            was_published = unpublish_quiz_for_edit(canvas_quiz)
-
-        # else: has submissions - edit anyway, user must manually save in browser
         quiz_question.edit(question=quiz_question_data)
-
-        if info is None:
-            # No submissions - republish if needed
-            republish_quiz_after_edit(canvas_quiz, was_published)
     else:
         # Creating new question
         quiz_question = canvas_quiz.create_question(question=quiz_question_data)
@@ -104,8 +110,10 @@ def deploy_quiz_question(course: Course, quiz_question_data: dict, _: Path) -> t
 
 def deploy_quiz_question_order(course: Course, order_data: QuizQuestionOrderData, _: Path) -> tuple[QuizQuestionOrderInfo, tuple[str, str | None] | None]:
     """
-    Reorder quiz questions using Canvas API.
-    NOTE: No CanvasAPI wrapper method exists for this endpoint.
+    Reorder questions, then recompute the quiz total after all question changes.
+
+    Quizzes with submissions cannot be unpublished; leave their totals for manual
+    review instead. No CanvasAPI wrapper method exists for the reorder endpoint.
 
     Args:
         course: Canvas course object
@@ -117,13 +125,6 @@ def deploy_quiz_question_order(course: Course, order_data: QuizQuestionOrderData
     canvas_quiz: Quiz = course.get_quiz(quiz_id)
 
     info = get_quiz_review_info(canvas_quiz)
-
-    was_published = False
-
-    if info is None:
-        # No submissions - safe to unpublish, reorder, republish
-        was_published = unpublish_quiz_for_edit(canvas_quiz)
-    # else: has submissions - reorder anyway, user must manually save in browser
 
     # Canvas API expects order as repeated form fields: order[][id]=1&order[][type]=question
     # Reorder API Docs: https://developerdocs.instructure.com/services/canvas/resources/quizzes#method.quizzes-quizzes_api.reorder
@@ -139,8 +140,7 @@ def deploy_quiz_question_order(course: Course, order_data: QuizQuestionOrderData
     )
 
     if info is None:
-        # No submissions - republish if needed
-        republish_quiz_after_edit(canvas_quiz, was_published)
+        recompute_quiz_points(canvas_quiz)
 
     return QuizQuestionOrderInfo(
         id=quiz_id,
