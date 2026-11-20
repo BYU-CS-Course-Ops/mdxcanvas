@@ -9,6 +9,7 @@
   with `reapply_on_update=True`. Dependencies are extracted from `data` references
   and stored in the deployment ledger so removed dependencies are deleted before
   their consumers are reapplied.
+- This fixes a race-condition between updating questions and setting the total points for a quiz.
 
 ### Upgrade note
 

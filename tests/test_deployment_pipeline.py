@@ -767,12 +767,8 @@ def test_syllabus_shell_survives_full_failure_and_rerun_plans_modified(monkeypat
     }
     assert len(store.saves) == 1
     saved = store.saves[0]
-    assert saved["resources"]["page|page"]["checksum"] == compute_md5(
-        resources[("page", "page")]["data"], tmp_path,
-    )
-    assert saved["resources"]["syllabus|syllabus"]["checksum"] == compute_md5(
-        {"content": ""}, tmp_path,
-    )
+    assert saved["resources"]["page|page"]["checksum"] is None
+    assert saved["resources"]["syllabus|syllabus"]["checksum"] is None
     assert [
         (item["resource_type"], item["outcome"])
         for item in report.report["deployment"]["changes_made"]
@@ -790,9 +786,8 @@ def test_syllabus_shell_survives_full_failure_and_rerun_plans_modified(monkeypat
     rerun = DeploymentReport()
     deploy_to_canvas(object(), "UTC", resources, rerun, tmp_path, dryrun=True)
 
-    assert rerun.report["deployment"]["expected_changes"] == [{
-        "change": "modified", "resource_type": "syllabus", "resource_id": "syllabus",
-    }]
+    assert len(rerun.report["deployment"]["expected_changes"]) == 4
+    assert {item["resource_type"] for item in rerun.report["deployment"]["expected_changes"]} == {"page", "syllabus"}
 
 
 def test_shell_success_full_failure_is_saved_and_rerun_is_modified(monkeypatch, tmp_path):
@@ -831,6 +826,5 @@ def test_shell_success_full_failure_is_saved_and_rerun_is_modified(monkeypatch, 
     rerun = DeploymentReport()
     deploy_to_canvas(object(), "UTC", resources, rerun, tmp_path, dryrun=True)
 
-    assert rerun.report["deployment"]["expected_changes"] == [{
-        "change": "modified", "resource_type": "page", "resource_id": "a",
-    }]
+    assert len(rerun.report["deployment"]["expected_changes"]) == 4
+    assert {item["resource_id"] for item in rerun.report["deployment"]["expected_changes"]} == {"a", "b"}

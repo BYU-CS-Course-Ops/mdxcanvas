@@ -122,7 +122,62 @@ def test_dependency_failure_blocks_postprocessing(tmp_path):
     assert len(result.blocked) == 1
 
 
-def test_update_dependency_cycles_fail_during_planning(tmp_path):
+@pytest.mark.parametrize("field", ["id", "parent", "title", "uri", "url", "page_url"])
+@pytest.mark.parametrize("opt_in", [None, False, True])
+@pytest.mark.parametrize("changed_field", ["title", "body"])
+def test_update_propagation_depends_on_referenced_field_or_consumer_opt_in(
+        tmp_path, field, opt_in, changed_field):
+    resources = {
+        ("page", "target"): resource("page", "target", {"title": "Original", "body": "Content"}),
+        ("page", "consumer"): resource("page", "consumer", {"body": f"__@@page||target||{field}@@__"}),
+    }
+    if opt_in is not None:
+        resources[("page", "consumer")]["reapply_on_update"] = opt_in
+    ledger = tracked(resources, tmp_path)
+    resources[("page", "target")]["data"][changed_field] = "Changed"
+
+    plan = plan_deployment(resources, ledger, build_builtin_handlers(), tmp_path)
+
+    expected = {"target"}
+    if opt_in or field in {"title", "uri", "url", "page_url"}:
+        expected.add("consumer")
+    assert {change.resource_id for change in plan.expected_changes} == expected
+
+
+@pytest.mark.parametrize("fields", [("title", "id"), ("id", "title")])
+def test_multiple_reads_of_dependency_combine_update_propagation(tmp_path, fields):
+    resources = {
+        ("page", "target"): resource("page", "target", {"title": "Original"}),
+        ("page", "consumer"): resource("page", "consumer", {
+            "body": " ".join(f"__@@page||target||{field}@@__" for field in fields),
+        }),
+    }
+    ledger = tracked(resources, tmp_path)
+    resources[("page", "target")]["data"]["title"] = "Renamed"
+
+    plan = plan_deployment(resources, ledger, build_builtin_handlers(), tmp_path)
+
+    assert {change.resource_id for change in plan.expected_changes} == {"target", "consumer"}
+
+
+@pytest.mark.parametrize("field", ["id", "title"])
+def test_automatic_propagation_applies_per_edge_transitively(tmp_path, field):
+    resources = {
+        ("page", "target"): resource("page", "target", {"title": "Original"}),
+        ("page", "consumer"): resource("page", "consumer", {"body": "__@@page||target||title@@__"}),
+        ("page", "next"): resource("page", "next", {"body": f"__@@page||consumer||{field}@@__"}),
+        ("page", "unrelated"): resource("page", "unrelated", {"title": "Other"}),
+    }
+    ledger = tracked(resources, tmp_path)
+    resources[("page", "target")]["data"]["title"] = "Renamed"
+
+    plan = plan_deployment(resources, ledger, build_builtin_handlers(), tmp_path)
+
+    expected = {"target", "consumer"} | ({"next"} if field == "title" else set())
+    assert {change.resource_id for change in plan.expected_changes} == expected
+
+
+def test_update_dependency_cycles_run_two_passes(tmp_path):
     resources = {
         ("page", rid): resource("page", rid, {"title": rid})
         for rid in ["a", "b"]
@@ -133,8 +188,20 @@ def test_update_dependency_cycles_fail_during_planning(tmp_path):
     ledger = tracked(resources, tmp_path)
     ledger["resources"]["page|a"]["checksum"] = "old"
 
-    with pytest.raises(ValueError, match="cycle"):
-        plan_deployment(resources, ledger, build_builtin_handlers(), tmp_path)
+    plan = plan_deployment(resources, ledger, build_builtin_handlers(), tmp_path)
+    first_pass = set()
+
+    def run(node):
+        assert isinstance(node.action, Update)
+        if node.action.checksum is None:
+            first_pass.add(node.planned_change.resource_id)
+        else:
+            assert first_pass == {"a", "b"}
+
+    result = execute_dag(plan.nodes, run)
+    assert len(plan.nodes) == 4
+    assert not result.failures
+    assert not result.blocked
 
 
 def test_missing_reference_fails_during_planning(tmp_path):
@@ -247,6 +314,24 @@ def test_deletion_parent_cycles_fail_during_planning(tmp_path):
 
     with pytest.raises(ValueError, match="cycle"):
         plan_deployment({}, ledger, build_builtin_handlers(), tmp_path)
+
+
+def test_existing_replacement_create_cycle_remains_unsupported(tmp_path):
+    resources = {("file", "self"): resource("file", "self", {"path": "__@@file||self||id@@__"})}
+    ledger = tracked(resources, tmp_path)
+    ledger["resources"]["file|self"]["checksum"] = "old"
+
+    with pytest.raises(ValueError, match="replacement-create"):
+        plan_deployment(resources, ledger, build_builtin_handlers(), tmp_path)
+
+
+def test_shell_with_unresolved_internal_reference_is_rejected(tmp_path):
+    resources = {("page", "self"): resource("page", "self", {
+        "title": "__@@page||self||title@@__", "body": "Content",
+    })}
+
+    with pytest.raises(ValueError, match="left internal references"):
+        plan_deployment(resources, tracked({}, tmp_path), build_builtin_handlers(), tmp_path)
 
 
 def test_replacement_create_propagates_through_transitive_consumers(tmp_path):

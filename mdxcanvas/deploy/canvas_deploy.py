@@ -225,7 +225,7 @@ def deploy_to_canvas(course: Course, timezone: str,
         entry = {
             "checksum": action.checksum,
             "canvas_info": canvas_info,
-            "dependencies": _dependencies(action.resource),
+            "dependencies": _dependencies(resources[resource_key]),
         }
         with lock:
             writable["resources"][raw_key] = entry
@@ -271,6 +271,21 @@ def deploy_to_canvas(course: Course, timezone: str,
         coordinator_failed = True
         report.add_deployment_error("deployment", error)
         execution = None
+
+    # A partial cycle must retry as a group: even successful first passes can
+    # contain stale links. Keep identities, but certify checksums only after all refreshes succeed.
+    finalized = {
+        node.planned_change.key for node in plan.nodes
+        if isinstance(node.action, (Create, Update))
+        and node.action.checksum is not None and node.key in completed
+    }
+    for group in plan.cycle_groups:
+        if not group <= finalized:
+            for key in group:
+                entry = writable["resources"].get(_raw_key(key))
+                if entry is not None:
+                    entry["checksum"] = None
+                    metadata_changed = True
 
     by_key = {node.key: node for node in plan.nodes}
     for key in sorted(completed, key=lambda item: by_key[item].plan_order):

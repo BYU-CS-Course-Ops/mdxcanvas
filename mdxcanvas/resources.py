@@ -121,7 +121,8 @@ class CanvasResource(TypedDict):
     # Set True for postprocessing that must run when a resource referenced in data
     # updates in place, even though its ID and this resource's data remain unchanged
     # (e.g. quiz question-order postprocessing after question edits). Defaults to False;
-    # this metadata is excluded from the checksum.
+    # this metadata is excluded from the checksum. References to title, uri, url,
+    # and page_url already propagate updates without this opt-in.
     reapply_on_update: NotRequired[bool]
 
 
