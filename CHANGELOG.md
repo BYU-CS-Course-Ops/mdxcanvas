@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.16 - 2026-11-20
+
+### Added
+
+- Tests that module items land in source order after a deploy.
+
 ## 0.8.15 - 2026-11-20
 
 ### Changed
